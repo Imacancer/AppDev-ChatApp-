@@ -1,0 +1,13 @@
+flask
+flask-socketio
+flask-cors
+flask-jwt-extended
+eventlet
+pymongo
+datetime
+typing
+dataclasses
+cloudinary
+werkzeug
+python-dotenv
+cryptography

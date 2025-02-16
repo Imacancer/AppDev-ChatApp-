@@ -1,0 +1,10 @@
+node_modules/
+.expo/
+dist
+__pycache__/
+.env
+.env.local
+virEnv/
+.dockerignore
+.DS_Store
+expo-env.d.ts
