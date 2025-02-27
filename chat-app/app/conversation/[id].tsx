@@ -22,6 +22,11 @@ import * as SecureStore from "expo-secure-store";
 import { WebRTCService } from "../websockets/socket";
 import CryptoJS from "crypto-js";
 import { decryptMessage, encryptMessage } from "@/utils/encryption";
+import { API_URL} from "@/constants/url";
+import { LOCALHOST_URL } from "@/constants/url";
+import { MY_API_IP_URL } from "@/constants/ip";
+import { launchImageLibraryAsync } from "expo-image-picker";
+import * as ImagePicker from "expo-image-picker";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const PROFILE_DRAWER_WIDTH = SCREEN_WIDTH * 0.8;
@@ -49,6 +54,7 @@ interface Message {
   senderId: string;
   recipientId: string;
   message: string;
+  image_url: string;
   timestamp: string;
   viewed: boolean;
 }
@@ -65,6 +71,7 @@ interface User {
 const Conversation: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
+  const [image_message, setNewImageMessage] = useState("");
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [recipient, setRecipient] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -157,7 +164,10 @@ const Conversation: React.FC = () => {
 
       // Fetch recipient details
       const recipientResponse = await axios.get(
-        `http://127.0.0.1:5001/api/get_user/${id}`,
+        //`http://127.0.0.1:5001/api/get_user/${id}`,
+        //`${LOCALHOST_URL}/get_user/${id}`,
+        //`${API_URL}/get_user/${id}`, // Use this if you are using android emulator
+        `${MY_API_IP_URL}/get_user/${id}`, // Use this one if you are using a physical android device
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -189,7 +199,10 @@ const Conversation: React.FC = () => {
   ) => {
     try {
       const response = await axios.get(
-        `http://127.0.0.1:5001/api/messages/conversation/${userId}/${id}`,
+        //`http://127.0.0.1:5001/api/messages/conversation/${userId}/${id}`,
+        //`{LOCALHOST_URL}/messages/conversation/${userId}/${id}`,
+        //`${API_URL}/messages/conversation/${userId}/${id}`, // Use this if you are using an android emulator
+        `${MY_API_IP_URL}/messages/conversation/${userId}/${id}`, // Use this if you are using a physical android device
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -226,7 +239,10 @@ const Conversation: React.FC = () => {
       await Promise.all(
         unreadMessages.map((msg) =>
           axios.put(
-            `http://127.0.0.1:5001/api/messages/view/${msg._id}`,
+            //`http://127.0.0.1:5001/api/messages/view/${msg._id}`,
+            //`${LOCALHOST_URL}/messages/view/${msg._id}`,
+            //`${API_URL}/messages/view/${msg._id}`, // Use this if you are using an android emulator
+            `${MY_API_IP_URL}/messages/view/${msg._id}`, // Use this if you are using physical android device
             {},
             {
               headers: { Authorization: `Bearer ${token}` },
@@ -251,6 +267,7 @@ const Conversation: React.FC = () => {
         message: newMessage.trim(),
         timestamp: new Date().toISOString(),
         viewed: false,
+        image_url: ""
       };
 
       const encryptedMessage = encryptMessage(messageObj.message, sharedSecret);

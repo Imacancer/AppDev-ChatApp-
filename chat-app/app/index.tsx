@@ -26,6 +26,11 @@ import {
   ScrollView,
 } from "react-native-gesture-handler";
 import { generateECDHKeys } from "@/utils/encryption";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_URL} from "@/constants/url";
+import { LOCALHOST_URL } from "@/constants/url";
+import { MY_API_IP_URL } from "@/constants/ip";
+
 
 const getDeviceToken = async (): Promise<string | null> => {
   if (!Device.isDevice) {
@@ -59,7 +64,10 @@ const getDeviceToken = async (): Promise<string | null> => {
 // API helper function
 const loginUser = async (email: string, password: string) => {
   try {
-    const response = await fetch("http://127.0.0.1:5001/api/log_users", {
+    //const response = await fetch("http://127.0.0.1:5001/api/log_users", {
+    //const response = await fetch(`${LOCALHOST_URL}/log_users`, {
+    //const response = await fetch(`${API_URL}/log_users`, {
+      const response = await fetch(`${MY_API_IP_URL}/log_users`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -71,6 +79,8 @@ const loginUser = async (email: string, password: string) => {
     if (response.ok) {
       // Store the JWT token securely
       await SecureStore.setItemAsync("userToken", data.accessToken);
+      // I tried to use AsyncStorage instead of SecureStore. 
+      await AsyncStorage.setItem("userToken", data.accessToken);
 
       return { success: true, data };
     } else {
@@ -104,6 +114,7 @@ const signUpUser = async (userData: {
     const deviceToken = await getDeviceToken();
     const currentDate = new Date().toISOString();
 
+    await AsyncStorage.setItem("privateKey", privateKey);
     await SecureStore.setItemAsync("privateKey", privateKey);
 
     const requestBody = {
@@ -120,7 +131,10 @@ const signUpUser = async (userData: {
       public_key: publicKey,
     };
 
-    const response = await fetch("http://127.0.0.1:5001/api/add_user", {
+    //const response = await fetch("http://127.0.0.1:5001/api/add_user", {
+    //const response = await fetch(`${LOCALHOST_URL}/add_user`, {
+    //const response = await fetch(`${API_URL}/add_user`, {
+    const response = await fetch(`${MY_API_IP_URL}/add_user`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -131,6 +145,7 @@ const signUpUser = async (userData: {
     const data = await response.json();
 
     if (response.ok) {
+      await AsyncStorage.setItem("userToken", data.accessToken);
       await SecureStore.setItemAsync("userToken", data.accessToken);
       const getPrivateKey = await SecureStore.getItemAsync("privateKey");
       console.log("privateKey", getPrivateKey);
@@ -250,7 +265,10 @@ export default function LoginScreen() {
 
   const loginUser = async (email: string, password: string) => {
     try {
-      const response = await fetch("http://127.0.0.1:5001/api/log_users", {
+      //const response = await fetch("http://127.0.0.1:5001/api/log_users", {
+      //const response = await fetch(`${LOCALHOST_URL}/log_users`, {
+      //const response = await fetch(`${API_URL}/log_users`, {
+      const response = await fetch(`${MY_API_IP_URL}/log_users`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -261,6 +279,7 @@ export default function LoginScreen() {
       const data = await response.json();
       if (response.ok) {
         // Store the JWT token using the platform-specific storage
+        await AsyncStorage.setItem("userToken", data.accessToken);
         await storage.setItem("userToken", data.accessToken);
         return { success: true, data };
       } else {

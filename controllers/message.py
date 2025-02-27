@@ -5,6 +5,8 @@ from db.db import db
 from bson.objectid import ObjectId
 from datetime import datetime
 from utils.encryption import encrypt_message, decrypt_message  # Import the encryption utilities
+import cloudinary
+import cloudinary.uploader
 
 message_bp = Blueprint('message', __name__)
 message_collection = db.get_collection("messages")
@@ -14,6 +16,7 @@ class MessageController:
     @message_bp.route('/send', methods=['POST'])
     def send_message():
         try:
+            """
             data = request.get_json()
             
             # Validate required fields
@@ -45,6 +48,41 @@ class MessageController:
         
         except Exception as e:
             return jsonify({"error": str(e)}), 500
+            """
+            sender_id = request.form.get('sender_id')
+            recipient_id = request.form.get('recipient_id')
+            text_message = request.form.get('message', None)
+            image_message = request.form.get('image_message')
+
+            if not sender_id or not recipient_id:
+                return jsonify({"error": "Missing sender_id or recipient_id"}), 400
+            
+            image_url = None
+            if image_message:
+                uploaded_image = cloudinary.uploader.upload(image_message)
+                image_url = uploaded_image["secure_url"]
+
+            if not text_message and not image_message:
+                return jsonify({"error": "Message must contain text or images"}), 400
+            
+            message = Message (
+                sender_id=sender_id,
+                recipient_id=recipient_id,
+                message=text_message if text_message else None,
+                image_url=image_url if image_url else None
+            )
+
+            result = message_collection.insert_one(message.to_dict())
+
+            return jsonify({
+                "message": "Message sent successfully",
+                "message_id": str(result.inserted_id),
+                "image_url": image_url
+            }), 201
+
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+            
     
     @staticmethod
     @message_bp.route('/get/<recipient_id>', methods=['GET'])

@@ -16,12 +16,17 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.manuel1.chatapp"
     },
     "web": {
       "bundler": "metro",
       "output": "static",
       "favicon": "./assets/images/favicon.png"
+    },
+    "notification": {
+      "vapidPublicKey": "BDxNEx8vC-QznN6uT7JdTQVfVmYkdxHMK3MqKPZRQmSPAwLf349v5jYDFibvVWM8_u12Seg9pWmYflCuBnXykwc",
+      "serviceWorkerPath": "/expo-service-worker.js"
     },
     "plugins": [
       "expo-router",
@@ -40,6 +45,7 @@
       "typedRoutes": true
     },
     "extra": {
+      "applicationId": "com.manuel1.chatapp",
       "router": {
         "origin": false
       },
