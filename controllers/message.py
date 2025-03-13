@@ -5,6 +5,7 @@ from db.db import db
 from bson.objectid import ObjectId
 from datetime import datetime
 from utils.encryption import encrypt_message, decrypt_message  # Import the encryption utilities
+
 import cloudinary
 import cloudinary.uploader
 
@@ -16,73 +17,35 @@ class MessageController:
     @message_bp.route('/send', methods=['POST'])
     def send_message():
         try:
-            """
             data = request.get_json()
-            
-            # Validate required fields
-            required_fields = ['sender_id', 'recipient_id', 'message']
-            for field in required_fields:
-                if field not in data:
-                    print(f"Missing Field {field}")
-                    return jsonify({"error": f"Missing {field}"}), 400
-            
-            # Encrypt the message before storing it
-            #encrypted_message = encrypt_message(data['message'])
-            
-            # Create message object
             message = Message(
                 sender_id=data['sender_id'],
                 recipient_id=data['recipient_id'],
-                message=data['message'] 
-                #message=encrypted_message  # Store the encrypted message
+                message=data.get('message', ''), # Message can be optional
+                is_media=data.get('isMedia', False)
             )
-            
-            # Insert message into database
+            if 'file_url' in data:
+                message.message = data['file_url']
+
             message_doc = message.to_dict()
             result = message_collection.insert_one(message_doc)
-            
-            return jsonify({
-                "message": "Message sent successfully",
-                "message_id": str(result.inserted_id)
-            }), 201
+
+            return jsonify({"message": "Message sent", "message_id": str(result.inserted_id)}), 201
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
         
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-            """
-            sender_id = request.form.get('sender_id')
-            recipient_id = request.form.get('recipient_id')
-            text_message = request.form.get('message', None)
-            image_message = request.form.get('image_message')
+    @message_bp.route('/upload', methods=['POST'])
+    def upload_media():
+        try:
+            file = request.files['file']
+            if not file:
+                return jsonify({"error": "No file uploaded"}), 400
 
-            if not sender_id or not recipient_id:
-                return jsonify({"error": "Missing sender_id or recipient_id"}), 400
-            
-            image_url = None
-            if image_message:
-                uploaded_image = cloudinary.uploader.upload(image_message)
-                image_url = uploaded_image["secure_url"]
-
-            if not text_message and not image_message:
-                return jsonify({"error": "Message must contain text or images"}), 400
-            
-            message = Message (
-                sender_id=sender_id,
-                recipient_id=recipient_id,
-                message=text_message if text_message else None,
-                image_url=image_url if image_url else None
-            )
-
-            result = message_collection.insert_one(message.to_dict())
-
-            return jsonify({
-                "message": "Message sent successfully",
-                "message_id": str(result.inserted_id),
-                "image_url": image_url
-            }), 201
+            upload_result = cloudinary.uploader.upload(file)
+            return jsonify({"url": upload_result['secure_url']}), 200
 
         except Exception as e:
             return jsonify({"error": str(e)}), 500
-            
     
     @staticmethod
     @message_bp.route('/get/<recipient_id>', methods=['GET'])

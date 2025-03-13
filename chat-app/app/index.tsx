@@ -66,8 +66,8 @@ const loginUser = async (email: string, password: string) => {
   try {
     //const response = await fetch("http://127.0.0.1:5001/api/log_users", {
     //const response = await fetch(`${LOCALHOST_URL}/log_users`, {
-    //const response = await fetch(`${API_URL}/log_users`, {
-      const response = await fetch(`${MY_API_IP_URL}/log_users`, {
+      const response = await fetch(`${API_URL}/log_users`, {
+      //const response = await fetch(`${MY_API_IP_URL}/log_users`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -133,8 +133,8 @@ const signUpUser = async (userData: {
 
     //const response = await fetch("http://127.0.0.1:5001/api/add_user", {
     //const response = await fetch(`${LOCALHOST_URL}/add_user`, {
-    //const response = await fetch(`${API_URL}/add_user`, {
-    const response = await fetch(`${MY_API_IP_URL}/add_user`, {
+    const response = await fetch(`${API_URL}/add_user`, {
+    //const response = await fetch(`${MY_API_IP_URL}/add_user`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -267,8 +267,8 @@ export default function LoginScreen() {
     try {
       //const response = await fetch("http://127.0.0.1:5001/api/log_users", {
       //const response = await fetch(`${LOCALHOST_URL}/log_users`, {
-      //const response = await fetch(`${API_URL}/log_users`, {
-      const response = await fetch(`${MY_API_IP_URL}/log_users`, {
+      const response = await fetch(`${API_URL}/log_users`, {
+      //const response = await fetch(`${MY_API_IP_URL}/log_users`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

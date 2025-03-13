@@ -10,3 +10,4 @@ virEnv/
 expo-env.d.ts
 env/
 android/
+constants.py

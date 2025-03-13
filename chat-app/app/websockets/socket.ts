@@ -22,8 +22,8 @@ export class WebRTCService {
   constructor(private userId: string) {
     //this.socket = io('http://localhost:5001', {transports: ['websocket'], withCredentials: true});
     //this.socket = io(`${LOCALHOST_5501}`, {transports: ['websocket'], withCredentials: true});
-    //this.socket = io(`${ANDROID_EMULATOR_URL}`, {transports: ['websocket'], withCredentials: true}); 
-    this.socket = io(`${MY_IP_URL}`, {transports: ['websocket'], withCredentials: true}); // Use this if you are testing in a physical android device
+    this.socket = io(`${ANDROID_EMULATOR_URL}`, {transports: ['websocket'], withCredentials: true}); 
+    //this.socket = io(`${MY_IP_URL}`, {transports: ['websocket'], withCredentials: true}); // Use this if you are testing in a physical android device
     this.setupSocketListeners();
   }
 
@@ -39,8 +39,8 @@ export class WebRTCService {
   private setupSocketListeners() {
     //const socket = io('http://localhost:5001', { transports: ['websocket'], withCredentials: true });
     //const socket = io(`${LOCALHOST_5501}`, { transports: ['websocket'], withCredentials: true });
-    //const socket = io(`${ANDROID_EMULATOR_URL}`, { transports: ['websocket'], withCredentials: true });
-    const socket = io(`${MY_IP_URL}`, { transports: ['websocket'], withCredentials: true });
+    const socket = io(`${ANDROID_EMULATOR_URL}`, { transports: ['websocket'], withCredentials: true });
+    //const socket = io(`${MY_IP_URL}`, { transports: ['websocket'], withCredentials: true });
 
     this.socket.on('connect', () => {
         console.log('Connected to server');

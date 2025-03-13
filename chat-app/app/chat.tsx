@@ -1,4 +1,3 @@
-// Chat.tsx
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -23,9 +22,9 @@ import { Platform } from "react-native";
 import { WebRTCService } from "./websockets/socket";
 import CryptoJS from "crypto-js";
 import { decryptMessage } from "@/utils/encryption";
+import { MY_API_IP_URL } from "@/constants/ip";
 import { API_URL } from "@/constants/url";
 import { LOCALHOST_URL } from "@/constants/url";
-import { MY_API_IP_URL } from "@/constants/ip";
 
 const isWeb = Platform.OS === "web";
 
@@ -89,7 +88,6 @@ interface Message {
   senderId: string;
   recipientId: string;
   message: string;
-  image_url: string;
   timestamp: string;
   viewed: boolean;
 }
@@ -160,8 +158,8 @@ const Chat: React.FC = () => {
         const response = await axios.get(
           //`http://127.0.0.1:5001/api/search_users?query=${query}`,
           //`${LOCALHOST_URL}/search_users?query=${query}`,
-          //`${API_URL}/search_users?query=${query}`, // Use this if you are using an android emulator
-          `${MY_API_IP_URL}/search_users?query=${query}`, // Use this if you are using a physical android device
+          `${API_URL}/search_users?query=${query}`, // Use this if you are using an android emulator
+          //`${MY_API_IP_URL}/search_users?query=${query}`, // Use this if you are using a physical android device
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -207,8 +205,8 @@ const Chat: React.FC = () => {
       const response = await axios.put(
         //`http://127.0.0.1:5001/api/messages/view/${messageId}`,
         //`${LOCALHOST_URL}/messages/view/${messageId}`,
-        //`${API_URL}/messages/view/${messageId}`, 
-        `${MY_API_IP_URL}/messages/view/${messageId}`,
+        `${API_URL}/messages/view/${messageId}`, 
+        //`${MY_API_IP_URL}/messages/view/${messageId}`,
         {},
         {
           headers: {
@@ -356,8 +354,8 @@ const Chat: React.FC = () => {
       const messagesResponse = await axios.get(
           //`http://127.0.0.1:5001/api/messages/getMessages/${currentUserId}`,
           //`${LOCALHOST_URL}/messages/getMessages/${currentUserId}`,
-          //`${API_URL}/messages/getMessages/${currentUserId}`,
-          `${MY_API_IP_URL}/messages/getMessages/${currentUserId}`,
+          `${API_URL}/messages/getMessages/${currentUserId}`,
+          //`${MY_API_IP_URL}/messages/getMessages/${currentUserId}`,
         {
           headers: {
             Authorization: `Bearer ${authToken}`,
@@ -381,8 +379,8 @@ const Chat: React.FC = () => {
           const conversationResponse = await axios.get(
             //`http://127.0.0.1:5001/api/messages/conversation/${currentUserId}/${partnerId}`,
             //`${LOCALHOST_URL}/messages/conversation/${currentUserId}/${partnerId}`,
-            //`${API_URL}/messages/conversation/${currentUserId}/${partnerId}`,
-            `${MY_API_IP_URL}/messages/conversation/${currentUserId}/${partnerId}`,
+            `${API_URL}/messages/conversation/${currentUserId}/${partnerId}`,
+            //`${MY_API_IP_URL}/messages/conversation/${currentUserId}/${partnerId}`,
             {
               headers: {
                 Authorization: `Bearer ${authToken}`,
@@ -394,8 +392,8 @@ const Chat: React.FC = () => {
           const userResponse = await axios.get(
             //`http://127.0.0.1:5001/api/get_user/${partnerId}`,
             //`${LOCALHOST_URL}/get_user/${partnerId}`,
-            //`${API_URL}/get_user/${partnerId}`,
-            `${MY_API_IP_URL}/get_user/${partnerId}`,
+            `${API_URL}/get_user/${partnerId}`,
+            //`${MY_API_IP_URL}/get_user/${partnerId}`,
             {
               headers: {
                 Authorization: `Bearer ${authToken}`,
@@ -464,8 +462,8 @@ const Chat: React.FC = () => {
       const response = await axios.get(
         //`http://127.0.0.1:5001/api/get_user/${userId}`,
         //`${LOCALHOST_URL}/get_user/${userId}`,
-        //`${API_URL}/get_user/${userId}`,
-        `${MY_API_IP_URL}/get_user/${userId}`,
+        `${API_URL}/get_user/${userId}`,
+        //`${MY_API_IP_URL}/get_user/${userId}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
