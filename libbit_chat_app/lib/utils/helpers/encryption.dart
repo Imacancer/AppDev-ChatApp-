@@ -9,22 +9,22 @@ class Encryption {
     // In a real-world scenario, you should use ECDH key generation from pointycastle
     final random = Random.secure();
     final privateKey = List<int>.generate(32, (_) => random.nextInt(256));
-    final publicKey = _hash(privateKey);
+    final publicKey = hash(privateKey);
 
     return {
-      'privateKey': _bytesToHex(privateKey),
-      'publicKey': _bytesToHex(publicKey),
+      'privateKey': bytesToHex(privateKey),
+      'publicKey': bytesToHex(publicKey),
     };
   }
 
   // Simulate ECDH public key generation via a hash (SHA256)
-  static List<int> _hash(List<int> data) {
+  static List<int> hash(List<int> data) {
     final digest = Digest("SHA-256");
     return digest.process(Uint8List.fromList(data));
   }
 
   // Convert bytes to Hex
-  static String _bytesToHex(List<int> bytes) {
+  static String bytesToHex(List<int> bytes) {
     return bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
   }
 

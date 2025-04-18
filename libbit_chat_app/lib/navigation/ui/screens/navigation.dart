@@ -18,12 +18,6 @@ class _NavigationState extends State<Navigation> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('libbit link'),
-        actions: [
-          IconButton(onPressed: () {}, icon: Icon(CupertinoIcons.create_solid)),
-        ],
-      ),
       body: screens[currentScreenIndex],
       bottomNavigationBar: CustomBottomNavigationBar(
         currentScreenIndex: currentScreenIndex,
