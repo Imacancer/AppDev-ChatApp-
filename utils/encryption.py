@@ -31,7 +31,10 @@ cipher_suite = Fernet(derive_key(ENCRYPTION_KEY))
 def encrypt_message(message: str) -> str:
     """Encrypt a message."""
     try:
-        return cipher_suite.encrypt(message.encode()).decode()
+        print(f"Encrypting message: {message}")
+        encrypted_message = cipher_suite.encrypt(message.encode()).decode()
+        print(f"Encrypted message: {encrypted_message}")
+        return encrypted_message
     except Exception as e:
         print(f"Encryption error: {e}")
         raise Exception("Failed to encrypt message")
@@ -39,7 +42,12 @@ def encrypt_message(message: str) -> str:
 def decrypt_message(encrypted_message: str) -> str:
     """Decrypt a message."""
     try:
-        return cipher_suite.decrypt(encrypted_message.encode()).decode()
+        print(f"Decrypting message: {encrypted_message}")
+        decrypted_message = cipher_suite.decrypt(encrypted_message.encode()).decode()
+        print(f"Decrypted message: {decrypted_message}")
+        return decrypted_message
     except Exception as e:
         print(f"Decryption error: {e}")
         raise Exception("Failed to decrypt message")
+
+

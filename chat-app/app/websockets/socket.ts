@@ -185,7 +185,7 @@ export class WebRTCService {
       
       const dataChannel = this.dataChannels.get(recipientId);
       if (dataChannel?.readyState === 'open') {
-        console.log('Sending encrypted message via WebRTC');
+        dataChannel.send(messageString);
       } else {
         console.log('Falling back to WebSocket');
         this.socket.emit('message', {
@@ -193,6 +193,7 @@ export class WebRTCService {
           message
         });
       }
+      
     } catch (error) {
       console.error('Failed to send message:', error);
       throw error;

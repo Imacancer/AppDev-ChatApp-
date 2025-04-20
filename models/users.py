@@ -17,6 +17,7 @@ class User:
     updated_at: datetime = None
     password: str = None
     public_key: Optional[str] = None
+    private_key: Optional[str] = None
 
     @property
     def userId(self) -> str:
@@ -39,6 +40,7 @@ class User:
             'createdAt': self.created_at or datetime.now(),
             'updatedAt': self.updated_at or datetime.now(),
             'password': self.password,
-            'publicKey': self.public_key
+            'publicKey': self.public_key,
+            'privateKey': self.private_key,
         }
     
