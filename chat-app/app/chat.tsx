@@ -352,17 +352,17 @@ const Chat: React.FC = () => {
     try {
       // First get all users the current user has interacted with
       const messagesResponse = await axios.get(
-          //`http://127.0.0.1:5001/api/messages/getMessages/${currentUserId}`,
-          //`${LOCALHOST_URL}/messages/getMessages/${currentUserId}`,
-          `${API_URL}/messages/getMessages/${currentUserId}`,
-          //`${MY_API_IP_URL}/messages/getMessages/${currentUserId}`,
+        //`http://127.0.0.1:5001/api/messages/getMessages/${currentUserId}`,
+        //`${LOCALHOST_URL}/messages/getMessages/${currentUserId}`,
+        `${API_URL}/messages/getMessages/${currentUserId}`,
+        //`${MY_API_IP_URL}/messages/getMessages/${currentUserId}`,
         {
           headers: {
             Authorization: `Bearer ${authToken}`,
           },
         }
       );
-
+  
       // Get unique user IDs from both sent and received messages
       const uniqueUserIds = new Set<string>();
       messagesResponse.data.forEach((message: Message) => {
@@ -372,7 +372,7 @@ const Chat: React.FC = () => {
           uniqueUserIds.add(message.senderId);
         }
       });
-
+  
       const chatUsersData: ChatUser[] = await Promise.all(
         Array.from(uniqueUserIds).map(async (partnerId) => {
           // Get the full conversation between current user and partner
@@ -387,7 +387,7 @@ const Chat: React.FC = () => {
               },
             }
           );
-
+  
           // Get partner user details
           const userResponse = await axios.get(
             //`http://127.0.0.1:5001/api/get_user/${partnerId}`,
@@ -400,41 +400,34 @@ const Chat: React.FC = () => {
               },
             }
           );
-
+  
           const partner = userResponse.data.user;
-
-          const sharedSecret = await computeSharedSecret(partner.publicKey);
-
-          const decryptedMessages = conversationResponse.data.map(
-            (msg: Message) => ({
-              ...msg,
-              message: decryptMessage(msg.message, sharedSecret),
-            })
-          );
+  
+          const messages = conversationResponse.data
+            .filter((msg: Message) => msg.message && msg.message.trim() !== "");
+  
           console.log(
-            `Decrypted messages for partner ${partnerId}:`,
-            decryptedMessages
+            `Messages for partner ${partnerId}:`,
+            messages
           );
-
-          //const messages = conversationResponse.data;
-
+  
           // Sort messages by timestamp to get the latest message
-          const sortedMessages = decryptedMessages.sort(
+          const sortedMessages = messages.sort(
             (a: Message, b: Message) =>
               new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
           );
-
+  
           const latestMessage = sortedMessages[0];
-
+  
           // Set the last message sender name
           const lastMessageSenderName =
             latestMessage.senderId === currentUserId ? "You" : partner.name;
-
+  
           // Count unread messages where current user is the recipient
-          const unreadCount = decryptedMessages.filter(
+          const unreadCount = messages.filter(
             (msg: Message) => msg.senderId === partnerId && !msg.viewed
           ).length;
-
+  
           return {
             id: partner.userId,
             name: partner.name,
@@ -449,13 +442,13 @@ const Chat: React.FC = () => {
           };
         })
       );
-
+  
       setChatUsers(chatUsersData);
     } catch (error) {
       console.error("Error fetching user messages:", error);
       Alert.alert("Error", "Could not fetch messages");
     }
-  };
+  };  
 
   const fetchUserDetails = async (token: string, userId: string) => {
     try {

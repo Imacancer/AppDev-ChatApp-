@@ -77,15 +77,11 @@ const loginUser = async (email: string, password: string) => {
 
     const data = await response.json();
     if (response.ok) {
-      // Store the JWT token securely
       await SecureStore.setItemAsync("userToken", data.accessToken);
-      // I tried to use AsyncStorage instead of SecureStore. 
       await AsyncStorage.setItem("userToken", data.accessToken);
 
       return { success: true, data };
-    } else {
-      return { success: false, message: data.error };
-    }
+    }    
   } catch (error) {
     console.error("Error logging in:", error);
     return { success: false, message: "Network error" };
@@ -103,8 +99,6 @@ const signUpUser = async (userData: {
   try {
     let profile_picture_base64 = undefined;
 
-    const { privateKey, publicKey } = generateECDHKeys();
-
     if (userData.profilePicture) {
       profile_picture_base64 = await convertImageToBase64(
         userData.profilePicture
@@ -113,9 +107,6 @@ const signUpUser = async (userData: {
 
     const deviceToken = await getDeviceToken();
     const currentDate = new Date().toISOString();
-
-    await AsyncStorage.setItem("privateKey", privateKey);
-    await SecureStore.setItemAsync("privateKey", privateKey);
 
     const requestBody = {
       email: userData.email,
@@ -128,7 +119,7 @@ const signUpUser = async (userData: {
       last_seen: currentDate,
       created_at: currentDate,
       updated_at: currentDate,
-      public_key: publicKey,
+      // Removed the public_key and private_key as encryption logic is being removed
     };
 
     //const response = await fetch("http://127.0.0.1:5001/api/add_user", {
@@ -147,8 +138,6 @@ const signUpUser = async (userData: {
     if (response.ok) {
       await AsyncStorage.setItem("userToken", data.accessToken);
       await SecureStore.setItemAsync("userToken", data.accessToken);
-      const getPrivateKey = await SecureStore.getItemAsync("privateKey");
-      console.log("privateKey", getPrivateKey);
       return {
         success: true,
         data: {
@@ -168,6 +157,7 @@ const signUpUser = async (userData: {
     return { success: false, message: "Network error" };
   }
 };
+
 
 const getImageMimeType = async (uri: string): Promise<string> => {
   try {

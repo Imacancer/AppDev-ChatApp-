@@ -9,11 +9,11 @@ class Database:
     def __init__(self):
         try:
             print("Initializing Database connection...")
-            mongo_uri = os.getenv('MONGO_URI')
-            mongo_db = os.getenv('MONGO_DB')   
+            mongo_uri = os.getenv('MONGO_URI_2')
+            mongo_db = os.getenv('MONGO_DB_2')   
 
             if not mongo_uri or not mongo_db:
-                raise ValueError("MONGO_URI or MONGO_DB is not set in the .env file")
+                raise ValueError("MONGO_URI_2 or MONGO_DB_2 is not set in the .env file")
 
             # Connect to MongoDB
             self.client = MongoClient(mongo_uri)

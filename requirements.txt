@@ -2,7 +2,7 @@ flask
 flask-socketio
 flask-cors
 flask-jwt-extended
-//eventlet
+eventlet
 pymongo
 datetime
 typing
@@ -11,4 +11,9 @@ cloudinary
 werkzeug
 python-dotenv
 cryptography
-getvent
+gevent
+tensorflow
+transformers
+tf-keras
+numpy
+pycryptodome
