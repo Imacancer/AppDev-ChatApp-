@@ -22,9 +22,17 @@ import * as SecureStore from "expo-secure-store";
 import { WebRTCService } from "../websockets/socket";
 import CryptoJS from "crypto-js";
 import { decryptMessage, encryptMessage } from "@/utils/encryption";
+import { API_URL} from "@/constants/url";
+import { LOCALHOST_URL } from "@/constants/url";
+import { MY_API_IP_URL } from "@/constants/ip";
+import * as ImagePicker from "expo-image-picker";
+import { Video, ResizeMode } from "expo-av";
+import * as MediaLibrary from "expo-media-library";
+import { generateECDHKeys } from "@/utils/encryption"; 
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const PROFILE_DRAWER_WIDTH = SCREEN_WIDTH * 0.8;
+
 
 const getToken = async () => {
   if (Platform.OS === "web") {
@@ -49,9 +57,20 @@ interface Message {
   senderId: string;
   recipientId: string;
   message: string;
+  isMedia?: boolean;
   timestamp: string;
   viewed: boolean;
+  classificationMessages?: ClassificationMessage[];
+  flaggedUrls?: string[];
 }
+
+interface ClassificationMessage {
+  url: string;
+  classification: "benign" | "potentially malicious" | "malicious";
+  score: number;
+  message: string;
+}
+
 
 interface User {
   _id: string;
@@ -75,6 +94,7 @@ const Conversation: React.FC = () => {
     null
   );
   const [sharedSecret, setSharedSecret] = useState<string | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
 
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -96,36 +116,43 @@ const Conversation: React.FC = () => {
     return sharedSecret;
   };
 
+
   useEffect(() => {
     console.log("Messages updated:", messages);
   }, [messages]);
-
+  
   useEffect(() => {
+    console.log("Dependencies check:", {
+      currentUserId: currentUser?.userId,
+      recipientId: id, // Use the route parameter directly
+      hasSharedSecret: !!sharedSecret
+    });
+  
     const initializeWebRTC = async () => {
-      if (currentUser?.userId && recipient?.userId && sharedSecret) {
+      if (currentUser?.userId && id) { // Use id instead of recipient?.userId
+        console.log("Initializing WebRTC service...");
         const service = new WebRTCService(currentUser.userId);
         service.setOnMessageCallback((message) => {
-          console.warn("sharedSecret in callback:", sharedSecret);
-          const decryptedMessage = {
-            ...message,
-            message: decryptMessage(message.message, sharedSecret),
-          };
-          setMessages((prev) => [...prev, decryptedMessage]);
+          setMessages((prev) => [...prev, message]);
         });
         await service.joinRoom(
-          `chat_${currentUser.userId}_${recipient.userId}`
+          `chat_${currentUser.userId}_${id}`
         );
         setWebRTCService(service);
+        console.log("WebRTC service initialized successfully");
+      } else {
+        console.log("Can't initialize WebRTC - missing userId");
       }
     };
-
+  
     initializeWebRTC();
     return () => {
       if (webRTCService) {
         webRTCService.setOnMessageCallback(() => {});
       }
     };
-  }, [currentUser?.userId, recipient?.userId, sharedSecret]);
+  }, [currentUser?.userId, id]); 
+  
 
   // Animation for profile drawer
   const toggleProfile = () => {
@@ -146,32 +173,33 @@ const Conversation: React.FC = () => {
     try {
       const token = await getToken();
       const userDataStr = await getUserData();
-
+  
       if (!token || !userDataStr) {
         router.replace("/");
         return;
       }
-
-      //const userData = JSON.parse(userDataStr);
+  
       setCurrentUser(userDataStr);
-
+  
       // Fetch recipient details
       const recipientResponse = await axios.get(
-        `http://127.0.0.1:5001/api/get_user/${id}`,
+        //`http://127.0.0.1:5001/api/get_user/${id}`,
+        //`${LOCALHOST_URL}/get_user/${id}`,
+        `${API_URL}/get_user/${id}`, // Use this if you are using android emulator
+        //`${MY_API_IP_URL}/get_user/${id}`, // Use this one if you are using a physical android device
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
       console.warn("Recipient response:", recipientResponse);
       const recipientData = recipientResponse.data.user;
-
+  
       setRecipient(recipientData);
-
+  
       if (recipientData.publicKey) {
-        const sharedSecret = await computeSharedSecret(recipientData.publicKey);
-        console.warn("sharedSecret:", sharedSecret);
-        setSharedSecret(sharedSecret);
-        await fetchMessages(token, userDataStr.userId, sharedSecret);
+        // Removed shared secret generation logic
+        console.warn("Recipient public key found, but no encryption needed.");
+        await fetchMessages(token, userDataStr.userId);
       } else {
         console.warn("Recipient public key not found.");
       }
@@ -180,39 +208,32 @@ const Conversation: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  };  
 
   const fetchMessages = async (
     token: string,
-    userId: string,
-    sharedSecret: string | null
+    userId: string
   ) => {
     try {
       const response = await axios.get(
-        `http://127.0.0.1:5001/api/messages/conversation/${userId}/${id}`,
+        `${API_URL}/messages/conversation/${userId}/${id}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
+  
 
-      const decryptedMessages = response.data.map((msg: Message) => {
-        // Make sure sharedSecret is available; otherwise, you might delay this process.
-        if (!sharedSecret) {
-          console.warn("Shared secret not available; cannot decrypt message.");
-          return msg;
-        }
-        return {
-          ...msg,
-          message: decryptMessage(msg.message, sharedSecret),
-        };
+      const messages = response.data.map((msg: Message) => {
+        const raw = msg.message;
+  
+        return { ...msg, message: raw }; 
       });
-
-      setMessages(decryptedMessages);
-      markUnreadMessagesAsViewed(decryptedMessages, token);
+  
+      setMessages(messages);
     } catch (error) {
-      console.error("Error fetching messages:", error);
+      console.error("Error fetching user messages:", error);
     }
-  };
+  };  
 
   const markUnreadMessagesAsViewed = async (
     messages: Message[],
@@ -226,7 +247,10 @@ const Conversation: React.FC = () => {
       await Promise.all(
         unreadMessages.map((msg) =>
           axios.put(
-            `http://127.0.0.1:5001/api/messages/view/${msg._id}`,
+            //`http://127.0.0.1:5001/api/messages/view/${msg._id}`,
+            //`${LOCALHOST_URL}/messages/view/${msg._id}`,
+            `${API_URL}/messages/view/${msg._id}`, // Use this if you are using an android emulator
+            //`${MY_API_IP_URL}/messages/view/${msg._id}`, // Use this if you are using physical android device
             {},
             {
               headers: { Authorization: `Bearer ${token}` },
@@ -240,86 +264,217 @@ const Conversation: React.FC = () => {
   };
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || !currentUser || !webRTCService || !sharedSecret)
+    if ((!newMessage.trim() && !selectedMedia) || !currentUser) {
+      console.log("Message not sent: missing content or user data", {
+        newMessage: newMessage.trim(),
+        selectedMedia,
+        currentUser
+      });
       return;
+    }
+  
+    console.log("WebRTC service status:", !!webRTCService);
+    
+    let mediaUrl = null;
 
+    if (selectedMedia) {
+      console.log("Uploading media...", selectedMedia);
+      mediaUrl = await uploadMedia(selectedMedia);
+      if (!mediaUrl) {
+        alert("Failed to upload media.");
+        return;
+      }
+    }
+  
+    console.log("Media uploaded:", mediaUrl);
+  
     try {
-      const messageObj: Message = {
-        _id: Date.now().toString(), // Temporary ID until server confirms
+      const messageObj = {
+        _id: Date.now().toString(),
         senderId: currentUser.userId,
         recipientId: id,
-        message: newMessage.trim(),
+        message: mediaUrl || newMessage.trim(),
+        isMedia: !!mediaUrl,
         timestamp: new Date().toISOString(),
         viewed: false,
       };
-
-      const encryptedMessage = encryptMessage(messageObj.message, sharedSecret);
-
-      // Send via WebRTC
-      await webRTCService.sendMessage(id, {
-        ...messageObj,
-        message: encryptedMessage,
+  
+      const response = await axios.post(`${API_URL}/messages/send`, {
+        sender_id: currentUser.userId,
+        recipient_id: id,
+        message: mediaUrl || newMessage.trim(),
+        isMedia: !!mediaUrl,
+        file_url: mediaUrl,
       });
+  
+      if (response.data.blocked) {
+        alert(`🚫 Message blocked due to high-risk link:\n${response.data.url}\nConfidence: ${(response.data.probability * 100).toFixed(2)}%\n\n${response.data.classificationMessage}`);
+        return;
+      }
+  
+      if (response.data.malicious && response.data.classificationMessages?.length > 0) {
+        const warnings = response.data.classificationMessages.map((msg: { url: string; message: string }) =>
+          `🔗 ${msg.url}\n⚠️ ${msg.message}`
+        ).join("\n\n");
+  
+        alert(`Caution: The message contains potentially risky links.\n\n${warnings}`);
+      }
+      
+      // Send message via WebRTC if available
+      /*
+      if (webRTCService) {
+        try {
+          await webRTCService.sendMessage(id, messageObj);
+          console.log("Message sent via WebRTC");
+        } catch (rtcError) {
+          console.error("Error sending via WebRTC, but HTTP successful:", rtcError);
+        }
+      } else {
+        console.log("WebRTC not available, message sent via HTTP only");
+      }
+      */
 
       // Update local state
       setMessages((prev) => [...prev, messageObj]);
       setNewMessage("");
+      setSelectedMedia(null);
       flatListRef.current?.scrollToEnd();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error sending message:", error);
+
+      if (error.response?.status === 400 && error.response?.data?.blocked) {
+        const data = error.response.data;
+        alert(`🚫 Message blocked due to high-risk link:\n${data.url}\nConfidence: ${(data.probability * 100).toFixed(2)}%\n\n${data.classificationMessage}`);
+        return;
+      }
+      
+      alert("Failed to send message. Please try again.");
     }
   };
 
+  const pickMedia = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images", "videos"], 
+      allowsEditing: false,
+      quality: 1,
+    });
+
+    console.log("Image Picker Result:", JSON.stringify(result, null, 2));
+
+    if (result.assets && result.assets.length > 0) {
+      const croppedUri = result.assets[0].uri;
+      console.log("Selected Media URI:", croppedUri);
+      setSelectedMedia(croppedUri);
+    }
+};
+
+
+  const uploadMedia = async (mediaUri: string) => {
+    try {
+      const formData = new FormData();
+  
+      const response = await fetch(mediaUri);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch media. Status: ${response.status}`);
+      }
+  
+      const blob = await response.blob();
+      const fileType = blob.type || (mediaUri.endsWith(".mp4") ? "video/mp4" : "image/jpeg");
+      const fileExtension = fileType.split("/")[1] || "jpg"; 
+  
+      formData.append("file", {
+        uri: mediaUri,
+        type: fileType,
+        name: `upload.${fileExtension}`,
+      } as any);
+
+      console.log("FormData before upload:", formData); 
+  
+      console.log("Uploading media to:", `${API_URL}/messages/upload`);
+      
+      const uploadResponse = await axios.post(
+        `${API_URL}/messages/upload`, 
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+  
+      console.log("Upload successful:", uploadResponse.data);
+      return uploadResponse.data.url; 
+    } catch (error) {
+      console.error("Error uploading media:",error);
+      return null;
+    }
+  };
+  
+  
   const renderMessage = ({ item }: { item: Message }) => {
     const isOwnMessage = item.senderId === currentUser?.userId;
-
+    const hasPotentialMalicious = item.classificationMessages?.some(
+      (msg: { classification: string }) => msg.classification === "potentially malicious"
+    );
+  
     return (
-      <View
-        style={[
-          styles.messageContainer,
-          isOwnMessage ? styles.ownMessage : styles.otherMessage,
-        ]}
-      >
+      <View style={[styles.messageContainer, isOwnMessage ? styles.ownMessage : styles.otherMessage]}>
         {!isOwnMessage && (
           <Image
-            source={{
-              uri:
-                recipient?.profilePicture || "https://via.placeholder.com/40",
-            }}
+            source={{ uri: recipient?.profilePicture || "https://via.placeholder.com/40" }}
             style={styles.messageAvatar}
           />
         )}
-        <View
-          style={[
-            styles.messageBubble,
-            isOwnMessage ? styles.ownBubble : styles.otherBubble,
-          ]}
-        >
-          <Text
-            style={[
-              styles.messageText,
-              isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
-            ]}
-          >
-            {item.message}
-          </Text>
-          <Text
-            style={[
-              styles.timestamp,
-              {
-                color: isOwnMessage ? "white" : "gray", // Adjust timestamp color
-              },
-            ]}
-          >
-            {new Date(item.timestamp).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
+  
+        <View style={[styles.messageBubble, isOwnMessage ? styles.ownBubble : styles.otherBubble]}>
+          {item.message?.includes("https://res.cloudinary.com") ? (
+            item.message.endsWith(".mp4") ? (
+              <Video
+                source={{ uri: item.message }}
+                style={styles.videoMessage}
+                useNativeControls
+                resizeMode={ResizeMode.CONTAIN}
+              />
+            ) : (
+              <Image
+                source={{ uri: item.message }}
+                style={styles.imageMessage}
+                resizeMode="contain"
+                onError={(error) => {
+                  console.log("Image Load Error:", error.nativeEvent.error);
+                  console.log("Failed URL:", item.message);
+                }}
+              />
+            )
+          ) : (
+            <Text style={[styles.messageText, isOwnMessage ? styles.ownMessageText : styles.otherMessageText]}>
+              {item.message}
+            </Text>
+          )}
+  
+          {hasPotentialMalicious && (
+          <View style={styles.warningBox}>
+            <Text style={styles.warningText}>⚠️ This message contains a potentially harmful link.</Text>
+            {item.classificationMessages?.map((msg: any, index: number) => (
+              msg.classification === "potentially malicious" && (
+                <Text key={index} style={styles.warningDetail}>
+                  🔗 {msg.url} — {msg.message}
+                </Text>
+              )
+            ))}
+          </View>
+        )}
+
+  
+          <Text style={styles.timestamp}>
+            {new Date(item.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
           </Text>
         </View>
       </View>
     );
   };
+  
 
   if (loading) {
     return (
@@ -328,6 +483,8 @@ const Conversation: React.FC = () => {
       </SafeAreaView>
     );
   }
+
+  if (!messages) return null;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -366,6 +523,12 @@ const Conversation: React.FC = () => {
         keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
       >
         <View style={styles.inputContainer}>
+          {/* Media Picker Button */}
+          <TouchableOpacity style={styles.mediaButton} onPress={pickMedia}>
+            <Ionicons name="image" size={24} color="#007AFF" />
+          </TouchableOpacity>
+
+          {/* Text Input */}
           <TextInput
             style={styles.input}
             value={newMessage}
@@ -374,19 +537,22 @@ const Conversation: React.FC = () => {
             multiline
             maxLength={1000}
           />
+
+          {/* Send Button */}
           <TouchableOpacity
             style={styles.sendButton}
             onPress={sendMessage}
-            disabled={!newMessage.trim()}
+            disabled={!newMessage?.trim() && !selectedMedia}
           >
             <Ionicons
               name="send"
               size={24}
-              color={newMessage.trim() ? "#007AFF" : "#A5A5A5"}
+              color={newMessage.trim() || selectedMedia ? "#007AFF" : "#A5A5A5"}
             />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
 
       {/* Profile Drawer */}
       <Animated.View
@@ -578,6 +744,42 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#666",
   },
+
+  imageMessage: {
+    width: 200,
+    height: 200,
+    borderRadius: 10,
+  },
+
+  videoMessage: {
+    width: 250,
+    height: 250,
+    borderRadius: 10,
+  },
+
+  mediaButton: {
+    marginRight: 10,
+    padding: 8,
+  },
+  
+  warningBox: {
+    marginTop: 5,
+    backgroundColor: '#FFF3CD',
+    borderColor: '#FFA000',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 8,
+  },
+  warningText: {
+    color: '#856404',
+    fontWeight: 'bold',
+  },
+  warningDetail: {
+    color: '#856404',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  
 });
 
 export default Conversation;

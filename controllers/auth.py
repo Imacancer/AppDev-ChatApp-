@@ -8,6 +8,7 @@ import os
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from dotenv import load_dotenv
+from utils.encryption import encrypt_message, decrypt_message
 
 user_collection = db.get_collection("users")
 
@@ -42,6 +43,12 @@ class UserController:
                 except Exception as upload_error:
                     print(f"Error uploading profile picture: {str(upload_error)}")
                     return jsonify({"error": "Failed to upload profile picture"}), 500
+                
+            encrypted_private_key = encrypt_message(data['private_key']) if 'private_key' in data else None
+
+            if not encrypted_private_key:
+                private_key = os.urandom(32).hex()
+                encrypted_private_key = encrypt_message(private_key)
 
             user = User(
                 username=data['username'],
@@ -54,7 +61,8 @@ class UserController:
                 last_seen=data.get('last_seen'),
                 created_at=data.get('created_at'),
                 updated_at=data.get('updated_at'),
-                public_key=data.get('public_key')
+                public_key=data.get('public_key'),
+                private_key=encrypted_private_key
             )
             user_doc = user.to_dict()
 
@@ -88,6 +96,15 @@ class UserController:
             if not user or not check_password_hash(user['password'], password):
                 return jsonify({"error": "Invalid email or password"}), 401
 
+            # If the private_key doesn't exist for this old user, generate and encrypt it
+            if not user.get('private_key'):
+                private_key = os.urandom(32).hex()  # Generate a random private key (example)
+                encrypted_private_key = encrypt_message(private_key)
+                user['private_key'] = encrypted_private_key
+                user_collection.update_one({"_id": user["_id"]}, {"$set": {"private_key": encrypted_private_key}})
+
+            decrypted_private_key = decrypt_message(user['private_key']) if user.get('private_key') else None
+
             user['_id'] = str(user['_id'])
 
             # Generate JWT
@@ -95,11 +112,13 @@ class UserController:
             return jsonify({
                 "message": "Login successful",
                 "accessToken": access_token,
-                "user": user
+                "user": user,
+                "privateKey": decrypted_private_key,
             }), 200
         except Exception as e:
             print(f"Error in login_user: {str(e)}")
             return jsonify({"error": str(e)}), 500
+
 
     @staticmethod
     @jwt_required()

@@ -1,4 +1,3 @@
-// Chat.tsx
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -23,6 +22,9 @@ import { Platform } from "react-native";
 import { WebRTCService } from "./websockets/socket";
 import CryptoJS from "crypto-js";
 import { decryptMessage } from "@/utils/encryption";
+import { MY_API_IP_URL } from "@/constants/ip";
+import { API_URL } from "@/constants/url";
+import { LOCALHOST_URL } from "@/constants/url";
 
 const isWeb = Platform.OS === "web";
 
@@ -154,7 +156,10 @@ const Chat: React.FC = () => {
       try {
         const token = await getToken();
         const response = await axios.get(
-          `http://127.0.0.1:5001/api/search_users?query=${query}`,
+          //`http://127.0.0.1:5001/api/search_users?query=${query}`,
+          //`${LOCALHOST_URL}/search_users?query=${query}`,
+          `${API_URL}/search_users?query=${query}`, // Use this if you are using an android emulator
+          //`${MY_API_IP_URL}/search_users?query=${query}`, // Use this if you are using a physical android device
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -198,7 +203,10 @@ const Chat: React.FC = () => {
       console.log("Marking message as viewed:", messageId);
 
       const response = await axios.put(
-        `http://127.0.0.1:5001/api/messages/view/${messageId}`,
+        //`http://127.0.0.1:5001/api/messages/view/${messageId}`,
+        //`${LOCALHOST_URL}/messages/view/${messageId}`,
+        `${API_URL}/messages/view/${messageId}`, 
+        //`${MY_API_IP_URL}/messages/view/${messageId}`,
         {},
         {
           headers: {
@@ -344,14 +352,17 @@ const Chat: React.FC = () => {
     try {
       // First get all users the current user has interacted with
       const messagesResponse = await axios.get(
-        `http://127.0.0.1:5001/api/messages/getMessages/${currentUserId}`,
+        //`http://127.0.0.1:5001/api/messages/getMessages/${currentUserId}`,
+        //`${LOCALHOST_URL}/messages/getMessages/${currentUserId}`,
+        `${API_URL}/messages/getMessages/${currentUserId}`,
+        //`${MY_API_IP_URL}/messages/getMessages/${currentUserId}`,
         {
           headers: {
             Authorization: `Bearer ${authToken}`,
           },
         }
       );
-
+  
       // Get unique user IDs from both sent and received messages
       const uniqueUserIds = new Set<string>();
       messagesResponse.data.forEach((message: Message) => {
@@ -361,63 +372,62 @@ const Chat: React.FC = () => {
           uniqueUserIds.add(message.senderId);
         }
       });
-
+  
       const chatUsersData: ChatUser[] = await Promise.all(
         Array.from(uniqueUserIds).map(async (partnerId) => {
           // Get the full conversation between current user and partner
           const conversationResponse = await axios.get(
-            `http://127.0.0.1:5001/api/messages/conversation/${currentUserId}/${partnerId}`,
+            //`http://127.0.0.1:5001/api/messages/conversation/${currentUserId}/${partnerId}`,
+            //`${LOCALHOST_URL}/messages/conversation/${currentUserId}/${partnerId}`,
+            `${API_URL}/messages/conversation/${currentUserId}/${partnerId}`,
+            //`${MY_API_IP_URL}/messages/conversation/${currentUserId}/${partnerId}`,
             {
               headers: {
                 Authorization: `Bearer ${authToken}`,
               },
             }
           );
-
+  
           // Get partner user details
           const userResponse = await axios.get(
-            `http://127.0.0.1:5001/api/get_user/${partnerId}`,
+            //`http://127.0.0.1:5001/api/get_user/${partnerId}`,
+            //`${LOCALHOST_URL}/get_user/${partnerId}`,
+            `${API_URL}/get_user/${partnerId}`,
+            //`${MY_API_IP_URL}/get_user/${partnerId}`,
             {
               headers: {
                 Authorization: `Bearer ${authToken}`,
               },
             }
           );
-
+  
           const partner = userResponse.data.user;
-
-          const sharedSecret = await computeSharedSecret(partner.publicKey);
-
-          const decryptedMessages = conversationResponse.data.map(
-            (msg: Message) => ({
-              ...msg,
-              message: decryptMessage(msg.message, sharedSecret),
-            })
-          );
+  
+          const messages = conversationResponse.data
+            .filter((msg: Message) => msg.message && msg.message.trim() !== "");
+  
           console.log(
-            `Decrypted messages for partner ${partnerId}:`,
-            decryptedMessages
+            `Messages for partner ${partnerId}:`,
+            messages
           );
-
-          //const messages = conversationResponse.data;
-
+  
           // Sort messages by timestamp to get the latest message
-          const sortedMessages = decryptedMessages.sort(
+          const sortedMessages = messages.sort(
             (a: Message, b: Message) =>
               new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
           );
-
+  
           const latestMessage = sortedMessages[0];
-
+  
           // Set the last message sender name
           const lastMessageSenderName =
             latestMessage.senderId === currentUserId ? "You" : partner.name;
-
+  
           // Count unread messages where current user is the recipient
-          const unreadCount = decryptedMessages.filter(
+          const unreadCount = messages.filter(
             (msg: Message) => msg.senderId === partnerId && !msg.viewed
           ).length;
-
+  
           return {
             id: partner.userId,
             name: partner.name,
@@ -432,18 +442,21 @@ const Chat: React.FC = () => {
           };
         })
       );
-
+  
       setChatUsers(chatUsersData);
     } catch (error) {
       console.error("Error fetching user messages:", error);
       Alert.alert("Error", "Could not fetch messages");
     }
-  };
+  };  
 
   const fetchUserDetails = async (token: string, userId: string) => {
     try {
       const response = await axios.get(
-        `http://127.0.0.1:5001/api/get_user/${userId}`,
+        //`http://127.0.0.1:5001/api/get_user/${userId}`,
+        //`${LOCALHOST_URL}/get_user/${userId}`,
+        `${API_URL}/get_user/${userId}`,
+        //`${MY_API_IP_URL}/get_user/${userId}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }

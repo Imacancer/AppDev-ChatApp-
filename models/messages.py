@@ -3,20 +3,12 @@ from bson.objectid import ObjectId
 from datetime import datetime
 
 class Message:
-    def __init__(
-        self, 
-        sender_id: str, 
-        recipient_id: str, 
-        message: str, 
-        _id: ObjectId = None, 
-        timestamp: datetime = None,
-        viewed: bool = False,
-
-    ):
+    def __init__(self, sender_id, recipient_id, message, is_media=False, _id=None, timestamp=None, viewed=False):
         self._id = _id or ObjectId()
         self.sender_id = sender_id
         self.recipient_id = recipient_id
         self.message = message
+        self.is_media = is_media 
         self.timestamp = timestamp or datetime.utcnow()
         self.viewed = viewed
 
@@ -26,6 +18,7 @@ class Message:
             'senderId': self.sender_id,
             'recipientId': self.recipient_id,
             'message': self.message,
+            'isMedia': self.is_media, 
             'timestamp': self.timestamp,
             'viewed': self.viewed
         }

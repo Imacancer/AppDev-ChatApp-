@@ -8,3 +8,7 @@ virEnv/
 .dockerignore
 .DS_Store
 expo-env.d.ts
+env/
+android/
+constants.py
+mongodb.txt
