@@ -70,11 +70,13 @@ class MessageInputWidget extends StatelessWidget {
                 child: TextField(
                   controller: controller,
                   decoration: const InputDecoration(
-                    hintText: 'Type a message',
+                    hintText: 'Message',
                     border: InputBorder.none,
                   ),
                   minLines: 1,
                   maxLines: 5,
+                  // Add onSubmitted to handle Enter key presses
+                  onSubmitted: (_) => onSendPressed(),
                 ),
               ),
               IconButton(

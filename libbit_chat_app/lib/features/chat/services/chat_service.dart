@@ -74,6 +74,7 @@ class ChatService {
           final lastMessage = item['lastMessage'];
 
           if (user != null && lastMessage != null) {
+            // Update this part in getUserChats method:
             final ChatUser chatUser = ChatUser(
               id: user['userId'],
               name: user['name'],
@@ -82,8 +83,9 @@ class ChatService {
               lastMessage: lastMessage['message'] ?? '',
               lastMessageId: lastMessage['_id'] ?? '',
               unreadCount: item['unreadCount'] ?? 0,
-              timestamp:
-                  lastMessage['timestamp'] ?? DateTime.now().toIso8601String(),
+              timestamp: ChatUser.parseTimestamp(
+                lastMessage['timestamp'],
+              ), // Use the helper method
               viewed: lastMessage['viewed'] ?? false,
               lastMessageSenderName: lastMessage['senderName'] ?? '',
             );
@@ -91,7 +93,6 @@ class ChatService {
             chatUsers.add(chatUser);
           }
         }
-
         return chatUsers;
       } else {
         debugPrint('Error fetching user chats: ${response.statusCode}');
@@ -218,8 +219,8 @@ class ChatService {
       await init();
 
       final messageObj = {
-        'senderId': senderId,
-        'recipientId': recipientId,
+        'sender_id': senderId,
+        'recipient_id': recipientId,
         'message': message,
         'isMedia': mediaUrl != null,
         'file_url': mediaUrl,

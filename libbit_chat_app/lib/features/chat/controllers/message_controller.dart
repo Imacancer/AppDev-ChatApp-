@@ -109,6 +109,8 @@ class MessageController extends ChangeNotifier {
       if (recipientData != null) {
         setRecipient(recipientData);
         await fetchMessages(token, userData.userId, recipientId);
+        // Add debug print to check message count after fetching
+        debugPrint("After fetchMessages, message count: ${_messages.length}");
       } else {
         debugPrint("Error fetching recipient");
       }
@@ -225,8 +227,16 @@ class MessageController extends ChangeNotifier {
     }
   }
 
-  Future<void> sendMessage() async {
-    if ((textController.text.trim().isEmpty && _selectedMedia == null) ||
+  Future<void> sendMessage([String? overrideText]) async {
+    // Use the override text if provided, otherwise use the controller text
+    final messageText = overrideText ?? textController.text.trim();
+
+    // Debug print to check inputs
+    debugPrint(
+      "sendMessage called. Text: $messageText, Media: $_selectedMedia",
+    );
+
+    if ((messageText.isEmpty && _selectedMedia == null) ||
         _currentUser == null ||
         _recipient == null) {
       debugPrint("Message not sent: missing content or user data");
@@ -251,11 +261,14 @@ class MessageController extends ChangeNotifier {
         return;
       }
 
+      final messageContent = mediaUrl ?? messageText;
+      final isMediaMessage = mediaUrl != null;
+
       final messageObj = {
-        'senderId': _currentUser!.userId,
-        'recipientId': _recipient!.userId,
-        'message': mediaUrl ?? textController.text.trim(),
-        'isMedia': mediaUrl != null,
+        'sender_id': _currentUser!.userId,
+        'recipient_id': _recipient!.userId,
+        'message': messageContent,
+        'isMedia': isMediaMessage,
         'file_url': mediaUrl,
       };
 
@@ -317,8 +330,8 @@ class MessageController extends ChangeNotifier {
               DateTime.now().millisecondsSinceEpoch.toString(),
           senderId: _currentUser!.userId,
           recipientId: _recipient!.userId,
-          message: mediaUrl ?? textController.text.trim(),
-          isMedia: false,
+          message: messageContent, // Use the stored messageContent
+          isMedia: isMediaMessage, // Use the correct isMedia flag
           timestamp: DateTime.now(),
           viewed: false,
           classificationMessages: classificationMessages,
@@ -343,9 +356,18 @@ class MessageController extends ChangeNotifier {
         }
 
         // Update local state
-        _messages.add(message);
+        debugPrint("Before adding message, message count: ${_messages.length}");
+        _messages.insert(
+          0,
+          message,
+        ); // Insert at the beginning since ListView is reversed
+        debugPrint("After adding message, message count: ${_messages.length}");
+
+        // Now it's safe to clear the input fields
         textController.clear();
         _selectedMedia = null;
+
+        // Notify listeners after all updates are complete
         notifyListeners();
       } else if (response.statusCode == 400) {
         final data = jsonDecode(response.body);
