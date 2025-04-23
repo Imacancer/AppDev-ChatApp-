@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart'; // For CupertinoIcons
 import 'package:libbit_chat_app/features/chat/models/chat_user_model.dart';
 import 'package:libbit_chat_app/features/chat/ui/screens/chat_screen.dart';
+import 'package:libbit_chat_app/utils/constants/color_constants.dart';
 import 'package:provider/provider.dart';
 import 'package:libbit_chat_app/features/chat/ui/widgets/custom_card_widget.dart';
 import 'package:libbit_chat_app/features/chat/controllers/chat_list_controller.dart';
@@ -14,14 +15,17 @@ class ChatListScreen extends StatefulWidget {
 }
 
 class _ChatListScreenState extends State<ChatListScreen> {
-  late ChatListController _controller;
   bool _showSearchBar = false;
   final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _controller = ChatListController();
+
+    // Initialize the data when the screen loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<ChatListController>(context, listen: false).initializeData();
+    });
   }
 
   @override
@@ -36,58 +40,65 @@ class _ChatListScreenState extends State<ChatListScreen> {
       if (!_showSearchBar) {
         // Clear search when hiding the search bar
         _searchController.clear();
-        _controller.handleSearch('');
+        Provider.of<ChatListController>(
+          context,
+          listen: false,
+        ).handleSearch('');
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider.value(
-      value: _controller,
-      child: Consumer<ChatListController>(
-        builder: (context, controller, _) {
-          return Scaffold(
-            appBar: AppBar(
-              title: const Text('libbit link'),
-              actions: [
-                // Create Icon (as in your example)
-                IconButton(
-                  onPressed: _toggleSearchBar,
-                  icon: Icon(
-                    !_showSearchBar
-                        ? CupertinoIcons.create_solid
-                        : CupertinoIcons.clear,
-                  ),
-                ),
-              ],
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('libbit link'),
+        actions: [
+          IconButton(
+            onPressed: _toggleSearchBar,
+            icon: Icon(
+              !_showSearchBar
+                  ? CupertinoIcons.create_solid
+                  : CupertinoIcons.clear,
             ),
-            body: Column(
-              children: [
-                if (_showSearchBar)
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: TextField(
-                      controller: _searchController,
-                      autofocus: true,
-                      decoration: const InputDecoration(
-                        hintText: 'Search users...',
-                        prefixIcon: Icon(Icons.search),
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(
-                          vertical: 8.0,
-                          horizontal: 16.0,
-                        ),
-                      ),
-                      onChanged: (value) => controller.handleSearch(value),
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+        child: Column(
+          children: [
+            if (_showSearchBar)
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: TextField(
+                  controller: _searchController,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    hintText: 'Search users',
+                    prefixIcon: Icon(Icons.search),
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(
+                      vertical: 8.0,
+                      horizontal: 16.0,
                     ),
                   ),
+                  onChanged: (value) {
+                    Provider.of<ChatListController>(
+                      context,
+                      listen: false,
+                    ).handleSearch(value);
+                  },
+                ),
+              ),
 
-                Expanded(child: _buildBody(controller)),
-              ],
+            Consumer<ChatListController>(
+              builder: (context, controller, _) {
+                return Expanded(child: _buildBody(controller));
+              },
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }
@@ -102,7 +113,14 @@ class _ChatListScreenState extends State<ChatListScreen> {
     }
 
     if (controller.chatUsers.isEmpty) {
-      return const Center(child: Text('No chats found'));
+      return Center(
+        child: Text(
+          'No chats found',
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(color: ColorConstants.neutralMedium),
+        ),
+      );
     }
 
     return _buildChatList(controller);
@@ -119,11 +137,20 @@ class _ChatListScreenState extends State<ChatListScreen> {
             await controller.handleChatPress(
               chatUser,
             ); // Mark messages as viewed
-            // Navigate to chat screen
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => ChatScreen()),
-            );
+
+            // Navigate to chat screen with the selected user
+            if (context.mounted) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder:
+                      (context) => ChatScreen(
+                        chatUser: chatUser,
+                        currentUser: controller.currentUser!,
+                      ),
+                ),
+              );
+            }
           },
         );
       },
@@ -132,7 +159,14 @@ class _ChatListScreenState extends State<ChatListScreen> {
 
   Widget _buildSearchResults(ChatListController controller) {
     if (controller.searchResults.isEmpty) {
-      return const Center(child: Text('No users found'));
+      return Center(
+        child: Text(
+          'No users found',
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(color: ColorConstants.neutralMedium),
+        ),
+      );
     }
 
     return ListView.builder(
@@ -156,11 +190,20 @@ class _ChatListScreenState extends State<ChatListScreen> {
           chatUser: tempChatUser,
           onTap: () async {
             await controller.fetchUserDetails(user.userId);
-            // Navigate to chat screen
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => ChatScreen()),
-            );
+
+            // Navigate to chat screen with the selected user
+            if (context.mounted) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder:
+                      (context) => ChatScreen(
+                        chatUser: tempChatUser,
+                        currentUser: controller.currentUser!,
+                      ),
+                ),
+              );
+            }
           },
         );
       },

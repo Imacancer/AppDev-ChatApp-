@@ -14,7 +14,7 @@ class AuthenticationScreen extends StatelessWidget {
       child: Scaffold(
         body: SingleChildScrollView(
           child: Padding(
-            padding: EdgeInsets.only(
+            padding: const EdgeInsets.only(
               left: 24,
               top: kToolbarHeight + 48,
               right: 24,
@@ -27,32 +27,26 @@ class AuthenticationScreen extends StatelessWidget {
                 children: [
                   Image.asset(
                     'assets/logos/libbit_logo_light_transparent.png',
-                    width: 120, // Set width
-                    height: 120, // Set height
+                    width: 120,
+                    height: 120,
                     fit: BoxFit.cover,
                   ),
-
-                  SizedBox(height: 24),
-
+                  const SizedBox(height: 24),
                   Text(
                     'Welcome',
                     style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                       color: ColorConstants.highlightPrimary,
                     ),
                   ),
-
-                  SizedBox(height: 12),
-
+                  const SizedBox(height: 12),
                   Text(
                     'Link up and start chatting anytime, anywhere!',
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: ColorConstants.neutralMedium,
                     ),
                   ),
-
-                  SizedBox(height: 24),
-
-                  AuthenticationFormWidget(),
+                  const SizedBox(height: 24),
+                  const AuthenticationFormWidget(),
                 ],
               ),
             ),

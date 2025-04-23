@@ -3,14 +3,11 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:libbit_chat_app/features/chat/models/message_model.dart';
 import 'package:libbit_chat_app/features/chat/models/user_model.dart';
+import 'package:libbit_chat_app/features/chat/models/chat_user_model.dart';
 import 'package:libbit_chat_app/utils/constants/url_constants.dart';
-import 'package:libbit_chat_app/utils/helpers/encryption.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 
-// User model and other model classes remain unchanged
-
-// Refactored ChatService class
 class ChatService {
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   final String _apiUrl = UrlConstants.apiUrl;
@@ -59,67 +56,54 @@ class ChatService {
     }
   }
 
-  // Generate and store ECDH keys
-  Future<void> generateAndStoreKeys() async {
-    final keys = Encryption.generateECDHKeys();
-
-    if (kIsWeb) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('privateKey', keys['privateKey']!);
-      await prefs.setString('publicKey', keys['publicKey']!);
-    } else {
-      await _secureStorage.write(key: 'privateKey', value: keys['privateKey']);
-      await _secureStorage.write(key: 'publicKey', value: keys['publicKey']);
-    }
-  }
-
-  // Get public key
-  Future<String?> getPublicKey() async {
-    if (kIsWeb) {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getString('publicKey');
-    } else {
-      return _secureStorage.read(key: 'publicKey');
-    }
-  }
-
-  // Compute shared secret for message encryption/decryption
-  Future<String> computeSharedSecret(String recipientPublicKey) async {
-    String? privateKey;
-
-    if (kIsWeb) {
-      final prefs = await SharedPreferences.getInstance();
-      privateKey = prefs.getString('privateKey');
-    } else {
-      privateKey = await _secureStorage.read(key: 'privateKey');
-    }
-
-    if (privateKey == null) {
-      throw Exception('Private key not found');
-    }
-
-    final combined = privateKey + recipientPublicKey;
-    final bytes = utf8.encode(combined);
-    final sharedSecretBytes = Encryption.hash(bytes);
-    return Encryption.bytesToHex(sharedSecretBytes);
-  }
-
-  // Encrypt message with shared secret
-  String encryptMessage(String message, String sharedSecret) {
-    return Encryption.encryptMessage(message, sharedSecret);
-  }
-
-  // Decrypt message with shared secret
-  String decryptMessage(String encryptedMessage, String sharedSecret) {
+  // Get a list of all conversations/chats for the current user
+  Future<List<ChatUser>> getUserChats(String userId) async {
     try {
-      return Encryption.decryptMessage(encryptedMessage, sharedSecret);
+      await init();
+      final response = await http.get(
+        Uri.parse('$_apiUrl/conversations/$userId'),
+        headers: _headers,
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        List<ChatUser> chatUsers = [];
+
+        for (final item in data) {
+          final user = item['user'];
+          final lastMessage = item['lastMessage'];
+
+          if (user != null && lastMessage != null) {
+            final ChatUser chatUser = ChatUser(
+              id: user['userId'],
+              name: user['name'],
+              avatar:
+                  user['profilePicture'] ?? 'assets/images/default_avatar.png',
+              lastMessage: lastMessage['message'] ?? '',
+              lastMessageId: lastMessage['_id'] ?? '',
+              unreadCount: item['unreadCount'] ?? 0,
+              timestamp:
+                  lastMessage['timestamp'] ?? DateTime.now().toIso8601String(),
+              viewed: lastMessage['viewed'] ?? false,
+              lastMessageSenderName: lastMessage['senderName'] ?? '',
+            );
+
+            chatUsers.add(chatUser);
+          }
+        }
+
+        return chatUsers;
+      } else {
+        debugPrint('Error fetching user chats: ${response.statusCode}');
+        return [];
+      }
     } catch (e) {
-      print('Error decrypting message: $e');
-      return '[Encrypted Message]';
+      debugPrint('Error fetching user chats: $e');
+      return [];
     }
   }
 
-  // API-related methods using http instead of dio
+  // Get user messages
   Future<List<Message>> getUserMessages(String userId) async {
     try {
       await init();
@@ -132,15 +116,16 @@ class ChatService {
         final List<dynamic> messageData = jsonDecode(response.body);
         return messageData.map((data) => Message.fromJson(data)).toList();
       } else {
-        print('Error fetching user messages: ${response.statusCode}');
+        debugPrint('Error fetching user messages: ${response.statusCode}');
         return [];
       }
     } catch (e) {
-      print('Error fetching user messages: $e');
+      debugPrint('Error fetching user messages: $e');
       return [];
     }
   }
 
+  // Get conversation messages between two users
   Future<List<Message>> getConversation(String userId, String partnerId) async {
     try {
       await init();
@@ -153,15 +138,16 @@ class ChatService {
         final List<dynamic> messageData = jsonDecode(response.body);
         return messageData.map((data) => Message.fromJson(data)).toList();
       } else {
-        print('Error fetching conversation: ${response.statusCode}');
+        debugPrint('Error fetching conversation: ${response.statusCode}');
         return [];
       }
     } catch (e) {
-      print('Error fetching conversation: $e');
+      debugPrint('Error fetching conversation: $e');
       return [];
     }
   }
 
+  // Mark message as viewed
   Future<bool> markMessageAsViewed(String messageId) async {
     try {
       await init();
@@ -171,11 +157,12 @@ class ChatService {
       );
       return response.statusCode == 200;
     } catch (e) {
-      print('Error marking message as viewed: $e');
+      debugPrint('Error marking message as viewed: $e');
       return false;
     }
   }
 
+  // Search users by query
   Future<List<User>> searchUsers(String query) async {
     try {
       await init();
@@ -193,11 +180,12 @@ class ChatService {
       }
       return [];
     } catch (e) {
-      print('Error searching users: $e');
+      debugPrint('Error searching users: $e');
       return [];
     }
   }
 
+  // Get user details
   Future<User?> getUserDetails(String userId) async {
     try {
       await init();
@@ -210,41 +198,48 @@ class ChatService {
         final Map<String, dynamic> data = jsonDecode(response.body);
         return User.fromJson(data['user']);
       } else {
-        print('Error fetching user details: ${response.statusCode}');
+        debugPrint('Error fetching user details: ${response.statusCode}');
         return null;
       }
     } catch (e) {
-      print('Error fetching user details: $e');
+      debugPrint('Error fetching user details: $e');
       return null;
     }
   }
 
-  Future<bool> sendMessage(String recipientId, String message) async {
+  // Send a message
+  Future<Map<String, dynamic>?> sendMessage({
+    required String senderId,
+    required String recipientId,
+    required String message,
+    String? mediaUrl,
+  }) async {
     try {
       await init();
-      final recipientDetails = await getUserDetails(recipientId);
-      if (recipientDetails == null) return false;
 
-      final currentUser = await getUserData();
-      if (currentUser == null) return false;
-
-      final sharedSecret = await computeSharedSecret(recipientDetails.userId);
-      final encryptedMessage = encryptMessage(message, sharedSecret);
+      final messageObj = {
+        'senderId': senderId,
+        'recipientId': recipientId,
+        'message': message,
+        'isMedia': mediaUrl != null,
+        'file_url': mediaUrl,
+      };
 
       final response = await http.post(
         Uri.parse('$_apiUrl/messages/send'),
         headers: _headers,
-        body: jsonEncode({
-          'senderId': currentUser.userId,
-          'recipientId': recipientId,
-          'message': encryptedMessage,
-        }),
+        body: jsonEncode(messageObj),
       );
 
-      return response.statusCode == 200;
+      if (response.statusCode == 200 || response.statusCode == 400) {
+        return jsonDecode(response.body);
+      } else {
+        debugPrint('Error sending message: ${response.statusCode}');
+        return null;
+      }
     } catch (e) {
-      print('Error sending message: $e');
-      return false;
+      debugPrint('Error sending message: $e');
+      return null;
     }
   }
 }

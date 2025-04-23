@@ -1,8 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:libbit_chat_app/utils/constants/url_constants.dart';
-import 'package:libbit_chat_app/utils/helpers/encryption.dart';
+// import 'package:libbit_chat_app/utils/helpers/encryption.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 // import 'package:device_info_plus/device_info_plus.dart';
@@ -43,7 +44,7 @@ class AuthService {
       // Return with the proper data URI format
       return "data:$mimeType;base64,$base64Image";
     } catch (e) {
-      print("Error converting image: $e");
+      debugPrint("Error converting image: $e");
       return null;
     }
   }
@@ -88,7 +89,7 @@ class AuthService {
         return {"success": false, "message": data["error"]};
       }
     } catch (error) {
-      print("Error logging in: $error");
+      debugPrint("Error logging in: $error");
       return {"success": false, "message": "Network error"};
     }
   }
@@ -104,9 +105,9 @@ class AuthService {
   }) async {
     try {
       // Generate keys using your custom Encryption class
-      final keys = Encryption.generateECDHKeys();
-      final privateKey = keys['privateKey'];
-      final publicKey = keys['publicKey'];
+      // final keys = Encryption.generateECDHKeys();
+      // final privateKey = keys['privateKey'];
+      // final publicKey = keys['publicKey'];
 
       // final String? deviceToken = await getDeviceToken();
       final String? profilePictureBase64 = await convertImageToBase64(
@@ -125,7 +126,7 @@ class AuthService {
         "last_seen": currentDate,
         "created_at": currentDate,
         "updated_at": currentDate,
-        "public_key": publicKey,
+        // "public_key": publicKey,
       };
 
       final response = await http.post(
@@ -138,13 +139,13 @@ class AuthService {
 
       if (response.statusCode == 200) {
         await saveUserToken(data["accessToken"]);
-        await secureStorage.write(key: "privateKey", value: privateKey);
+        // await secureStorage.write(key: "privateKey", value: privateKey);
         return {"success": true, "data": data};
       } else {
         return {"success": false, "message": data["error"]};
       }
     } catch (error) {
-      print("Error signing up: $error");
+      debugPrint("Error signing up: $error");
       return {"success": false, "message": "Network error"};
     }
   }

@@ -70,7 +70,7 @@ class AuthController extends ChangeNotifier {
         return false;
       }
     } catch (error) {
-      print("Error during login: $error");
+      debugPrint("Error during login: $error");
       _showAlert(context, "Error", "An unexpected error occurred during login");
       setLoading(false);
       return false;
@@ -137,7 +137,7 @@ class AuthController extends ChangeNotifier {
         return false;
       }
     } catch (error) {
-      print("Error during sign up: $error");
+      debugPrint("Error during sign up: $error");
       _showAlert(
         context,
         "Error",
@@ -164,7 +164,7 @@ class AuthController extends ChangeNotifier {
       }
       return false;
     } catch (error) {
-      print("Error loading user data: $error");
+      debugPrint("Error loading user data: $error");
       return false;
     }
   }
@@ -184,7 +184,7 @@ class AuthController extends ChangeNotifier {
 
       notifyListeners();
     } catch (error) {
-      print("Error during logout: $error");
+      debugPrint("Error during logout: $error");
     }
   }
 

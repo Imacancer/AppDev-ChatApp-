@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:libbit_chat_app/features/chat/models/chat_user_model.dart';
-import 'package:libbit_chat_app/features/chat/models/message_model.dart';
 import 'package:libbit_chat_app/features/chat/models/user_model.dart';
 import 'package:libbit_chat_app/features/chat/services/chat_service.dart';
 
@@ -39,7 +39,7 @@ class ChatListController extends ChangeNotifier {
         // Direct conversation handling will be done in UI layer with Provider
       }
     } catch (e) {
-      print('Initialization error: $e');
+      debugPrint('Initialization error: $e');
       // Snackbar will be shown from UI layer
     } finally {
       isLoading = false;
@@ -93,12 +93,12 @@ class ChatListController extends ChangeNotifier {
 
   Future<void> fetchUserMessages(String userId) async {
     try {
-      // First get all messages
-      final messages = await _chatService.getUserMessages(userId);
+      // First get all messages the current user has interacted with
+      final messagesResponse = await _chatService.getUserMessages(userId);
 
       // Get unique user IDs from both sent and received messages
       final uniqueUserIds = <String>{};
-      for (final message in messages) {
+      for (final message in messagesResponse) {
         if (message.senderId == userId) {
           uniqueUserIds.add(message.recipientId);
         } else {
@@ -110,42 +110,33 @@ class ChatListController extends ChangeNotifier {
       final chatUsersData = <ChatUser>[];
 
       for (final partnerId in uniqueUserIds) {
-        // Get conversation between current user and partner
-        final conversation = await _chatService.getConversation(
+        // Get the full conversation between current user and partner
+        final conversationResponse = await _chatService.getConversation(
           userId,
           partnerId,
         );
 
-        // Get partner details
+        // Get partner user details
         final partner = await _chatService.getUserDetails(partnerId);
 
         if (partner != null) {
-          // Compute shared secret for decryption
-          final sharedSecret = await _chatService.computeSharedSecret(
-            partner.userId,
-          );
+          // Filter out empty messages like in the React code
+          final messages =
+              conversationResponse
+                  .where(
+                    (msg) =>
+                        // ignore: unnecessary_null_comparison
+                        msg.message != null && msg.message.trim().isNotEmpty,
+                  )
+                  .toList();
 
-          // Decrypt messages
-          final decryptedMessages =
-              conversation.map((msg) {
-                return Message(
-                  id: msg.id,
-                  senderId: msg.senderId,
-                  recipientId: msg.recipientId,
-                  message: _chatService.decryptMessage(
-                    msg.message,
-                    sharedSecret,
-                  ),
-                  timestamp: msg.timestamp,
-                  viewed: msg.viewed,
-                );
-              }).toList();
+          debugPrint('Messages for partner $partnerId: $messages');
 
-          // Sort messages by timestamp to get the latest message
-          decryptedMessages.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          if (messages.isNotEmpty) {
+            // Sort messages by timestamp to get the latest message
+            messages.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
-          if (decryptedMessages.isNotEmpty) {
-            final latestMessage = decryptedMessages[0];
+            final latestMessage = messages[0];
 
             // Set the last message sender name
             final lastMessageSenderName =
@@ -153,7 +144,7 @@ class ChatListController extends ChangeNotifier {
 
             // Count unread messages where current user is the recipient
             final unreadCount =
-                decryptedMessages
+                messages
                     .where((msg) => msg.senderId == partnerId && !msg.viewed)
                     .length;
 
@@ -161,13 +152,13 @@ class ChatListController extends ChangeNotifier {
               ChatUser(
                 id: partner.userId,
                 name: partner.name,
-                avatar:
-                    partner.profilePicture ??
-                    'assets/images/default_avatar.png',
+                avatar: partner.profilePicture ?? 'assets/images/wonhee.png',
                 lastMessage: latestMessage.message,
                 lastMessageId: latestMessage.id,
                 unreadCount: unreadCount,
-                timestamp: latestMessage.timestamp.toLocal().toString(),
+                timestamp: DateFormat.jm().format(
+                  latestMessage.timestamp.toLocal(),
+                ),
                 viewed:
                     latestMessage.senderId == userId || latestMessage.viewed,
                 lastMessageSenderName: lastMessageSenderName,
@@ -180,8 +171,7 @@ class ChatListController extends ChangeNotifier {
       chatUsers = chatUsersData;
       notifyListeners();
     } catch (e) {
-      print('Error fetching user messages: $e');
-      // Snackbar will be shown from UI layer
+      debugPrint('Error fetching user messages: $e');
     }
   }
 
@@ -195,7 +185,7 @@ class ChatListController extends ChangeNotifier {
       }
       return user;
     } catch (e) {
-      print('Error fetching user details: $e');
+      debugPrint('Error fetching user details: $e');
       // Snackbar will be shown from UI layer
       return null;
     }
@@ -210,7 +200,7 @@ class ChatListController extends ChangeNotifier {
         searchResults = results;
         notifyListeners();
       } catch (e) {
-        print('Error searching users: $e');
+        debugPrint('Error searching users: $e');
         searchResults = [];
         notifyListeners();
       }
@@ -249,7 +239,7 @@ class ChatListController extends ChangeNotifier {
         }
       }
     } catch (e) {
-      print('Error marking message as viewed: $e');
+      debugPrint('Error marking message as viewed: $e');
     }
   }
 
@@ -269,7 +259,7 @@ class ChatListController extends ChangeNotifier {
       await _chatService.clearStorage();
       // Navigation will be handled in UI layer
     } catch (e) {
-      print('Logout error: $e');
+      debugPrint('Logout error: $e');
       // Snackbar will be shown from UI layer
     }
   }

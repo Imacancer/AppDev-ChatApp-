@@ -1,87 +1,87 @@
-import 'package:flutter/cupertino.dart';
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:libbit_chat_app/utils/constants/color_constants.dart';
 
-class MessageInputWidget extends StatefulWidget {
-  const MessageInputWidget({super.key});
+class MessageInputWidget extends StatelessWidget {
+  final TextEditingController controller;
+  final VoidCallback onSendPressed;
+  final VoidCallback onAttachmentPressed;
+  final String? selectedMedia;
+  final VoidCallback onClearMedia;
 
-  @override
-  // ignore: library_private_types_in_public_api
-  _MessageInputWidgetState createState() => _MessageInputWidgetState();
-}
-
-class _MessageInputWidgetState extends State<MessageInputWidget> {
-  final FocusNode _focusNode = FocusNode();
-  bool isFocused = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _focusNode.addListener(() {
-      setState(() {
-        isFocused = _focusNode.hasFocus;
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    _focusNode.dispose();
-    super.dispose();
-  }
+  const MessageInputWidget({
+    super.key,
+    required this.controller,
+    required this.onSendPressed,
+    required this.onAttachmentPressed,
+    this.selectedMedia,
+    required this.onClearMedia,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 24),
-      color: Colors.white,
-      child: Row(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        boxShadow: [
+          BoxShadow(
+            offset: const Offset(0, -2),
+            blurRadius: 4,
+            color: Colors.black.withOpacity(0.1),
+          ),
+        ],
+      ),
+      child: Column(
         children: [
-          if (!isFocused) ...[
-            // Hide icons when focused
-            IconButton(
-              onPressed: () {},
-              icon: Icon(
-                CupertinoIcons.book_circle_fill,
-                color: ColorConstants.highlightPrimary,
-              ),
-            ),
-            IconButton(
-              onPressed: () {},
-              icon: Icon(Icons.image),
-              color: ColorConstants.highlightPrimary,
-            ),
-          ],
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              child: TextField(
-                focusNode: _focusNode, // Attach focus node
-                decoration: InputDecoration(
-                  hintText: "Message",
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12),
-                  filled: true,
-                  fillColor: ColorConstants.neutralLight,
-                  border: InputBorder.none,
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
+          if (selectedMedia != null)
+            Stack(
+              alignment: Alignment.topRight,
+              children: [
+                Container(
+                  height: 100,
+                  width: 100,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    image: DecorationImage(
+                      image: FileImage(File(selectedMedia!)),
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
-                keyboardType: TextInputType.multiline,
-                maxLines: 2,
-                minLines: 1,
-              ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: onClearMedia,
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.black.withOpacity(0.5),
+                    padding: const EdgeInsets.all(4),
+                    minimumSize: const Size(24, 24),
+                  ),
+                ),
+              ],
             ),
-          ),
-          IconButton(
-            onPressed: () {},
-            icon: Icon(Icons.send),
-            color: ColorConstants.highlightPrimary,
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.attachment),
+                onPressed: onAttachmentPressed,
+              ),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  decoration: const InputDecoration(
+                    hintText: 'Type a message',
+                    border: InputBorder.none,
+                  ),
+                  minLines: 1,
+                  maxLines: 5,
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.send, color: Theme.of(context).primaryColor),
+                onPressed: onSendPressed,
+              ),
+            ],
           ),
         ],
       ),

@@ -1,7 +1,8 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:libbit_chat_app/features/chat/ui/screens/chat_list_screen.dart';
 import 'package:libbit_chat_app/navigation/ui/widgets/custom_navigation_bar.dart';
+import 'package:provider/provider.dart';
+import 'package:libbit_chat_app/features/chat/controllers/chat_list_controller.dart';
 
 class Navigation extends StatefulWidget {
   const Navigation({super.key});
@@ -13,12 +14,22 @@ class Navigation extends StatefulWidget {
 class _NavigationState extends State<Navigation> {
   int currentScreenIndex = 0;
 
-  final List<Widget> screens = [const ChatListScreen()];
+  @override
+  void initState() {
+    super.initState();
+    // Initialize the ChatListController when navigation is loaded
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<ChatListController>(context, listen: false).initializeData();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: screens[currentScreenIndex],
+      body: IndexedStack(
+        index: currentScreenIndex,
+        children: const [ChatListScreen()],
+      ),
       bottomNavigationBar: CustomBottomNavigationBar(
         currentScreenIndex: currentScreenIndex,
         onDestinationSelected: (int index) {

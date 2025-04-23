@@ -1,32 +1,10 @@
-import 'package:socket_io_client/socket_io_client.dart' as io;
-import 'package:flutter_webrtc/flutter_webrtc.dart' as webrtc;
+import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart' as webrtc;
+import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:libbit_chat_app/utils/constants/url_constants.dart';
-
-// Constants - You'll need to define these in your Flutter project
-// const String API_URL = 'your_api_url';
-// const String LOCALHOST_URL = 'http://localhost:5001';
-// const String ANDROID_EMULATOR_URL = 'http://10.0.2.2:5001';
-// const String LOCALHOST_5501 = 'http://localhost:5501';
-// const String MY_IP_URL = 'http://your_ip:5001';
-
-class UserProfile {
-  final String userId;
-  String? profilePicture;
-
-  UserProfile({required this.userId, this.profilePicture});
-
-  Map<String, dynamic> toJson() {
-    return {'userId': userId, 'profilePicture': profilePicture};
-  }
-
-  factory UserProfile.fromJson(Map<String, dynamic> json) {
-    return UserProfile(
-      userId: json['userId'],
-      profilePicture: json['profilePicture'],
-    );
-  }
-}
+import 'package:libbit_chat_app/features/chat/models/user_model.dart';
 
 class WebRTCService {
   final String userId;
@@ -34,7 +12,7 @@ class WebRTCService {
   Map<String, webrtc.RTCPeerConnection> peerConnections = {};
   Map<String, webrtc.RTCDataChannel> dataChannels = {};
   Function(dynamic)? onMessageCallback;
-  Function(UserProfile)? onProfileUpdateCallback;
+  Function(User)? onProfileUpdateCallback;
 
   WebRTCService({required this.userId}) {
     _initSocket();
@@ -56,21 +34,21 @@ class WebRTCService {
     onMessageCallback = callback;
   }
 
-  void setOnProfileUpdateCallback(Function(UserProfile) callback) {
+  void setOnProfileUpdateCallback(Function(User) callback) {
     onProfileUpdateCallback = callback;
   }
 
   void setupSocketListeners() {
     socket.onConnect((_) {
-      print('Connected to server');
+      debugPrint('Connected to server');
     });
 
     socket.onDisconnect((_) {
-      print('Disconnected from server');
+      debugPrint('Disconnected from server');
     });
 
     socket.onReconnect((_) {
-      print('Reconnected to server');
+      debugPrint('Reconnected to server');
     });
 
     socket.on('user_joined', (data) async {
@@ -79,21 +57,21 @@ class WebRTCService {
 
     socket.on('profile_update', (profile) {
       if (onProfileUpdateCallback != null) {
-        final userProfile = UserProfile.fromJson(profile);
+        final userProfile = User.fromJson(profile);
         onProfileUpdateCallback!(userProfile);
       }
     });
 
     socket.on('connect_error', (error) {
-      print('Connection error: $error');
+      debugPrint('Connection error: $error');
     });
 
     socket.on('error', (error) {
-      print('Socket error: $error');
+      debugPrint('Socket error: $error');
     });
 
     socket.on('offer', (data) async {
-      print('Received offer from ${data['sender_id']}');
+      debugPrint('Received offer from ${data['sender_id']}');
       final peerConnection = await createPeerConnection(data['sender_id']);
       final offer = webrtc.RTCSessionDescription(
         data['offer']['sdp'],
@@ -102,7 +80,7 @@ class WebRTCService {
       await peerConnection.setRemoteDescription(offer);
       final answer = await peerConnection.createAnswer({});
       await peerConnection.setLocalDescription(answer);
-      print('Sending answer to ${data['sender_id']}');
+      debugPrint('Sending answer to ${data['sender_id']}');
       socket.emit('answer', {
         'sender_id': data['sender_id'],
         'answer': {'type': answer.type, 'sdp': answer.sdp},
@@ -110,7 +88,7 @@ class WebRTCService {
     });
 
     socket.on('answer', (data) async {
-      print('Received answer from ${data['sender_id']}');
+      debugPrint('Received answer from ${data['sender_id']}');
       final peerConnection = peerConnections[data['sender_id']];
       if (peerConnection != null) {
         final answer = webrtc.RTCSessionDescription(
@@ -122,7 +100,7 @@ class WebRTCService {
     });
 
     socket.on('ice_candidate', (data) async {
-      print('Received ICE candidate from ${data['sender_id']}');
+      debugPrint('Received ICE candidate from ${data['sender_id']}');
       final peerConnection = peerConnections[data['sender_id']];
       if (peerConnection != null) {
         final candidate = webrtc.RTCIceCandidate(
@@ -154,9 +132,7 @@ class WebRTCService {
       ],
     };
 
-    final peerConnection = await createPeerConnectionWithConfiguration(
-      configuration,
-    );
+    final peerConnection = await webrtc.createPeerConnection(configuration);
     peerConnections[recipientId] = peerConnection;
 
     // Create data channel
@@ -170,7 +146,7 @@ class WebRTCService {
     dataChannels[recipientId] = dataChannel;
 
     peerConnection.onIceCandidate = (webrtc.RTCIceCandidate candidate) {
-      print('ICE Candidate: ${candidate.toMap()}');
+      debugPrint('ICE Candidate: ${candidate.toMap()}');
       socket.emit('ice_candidate', {
         'recipient_id': recipientId,
         'candidate': {
@@ -188,23 +164,17 @@ class WebRTCService {
     return peerConnection;
   }
 
-  Future<webrtc.RTCPeerConnection> createPeerConnectionWithConfiguration(
-    Map<String, dynamic> configuration,
-  ) async {
-    return await webrtc.createPeerConnection(configuration);
-  }
-
   void setupDataChannel(webrtc.RTCDataChannel dataChannel) {
     dataChannel.onDataChannelState = (webrtc.RTCDataChannelState state) {
       if (state == webrtc.RTCDataChannelState.RTCDataChannelOpen) {
-        print('Data channel is open and ready to send data.');
+        debugPrint('Data channel is open and ready to send data.');
       } else if (state == webrtc.RTCDataChannelState.RTCDataChannelClosed) {
-        print('Data channel is closed.');
+        debugPrint('Data channel is closed.');
       }
     };
 
     dataChannel.onMessage = (webrtc.RTCDataChannelMessage message) {
-      print('Message received via data channel: ${message.text}');
+      debugPrint('Message received via data channel: ${message.text}');
       if (onMessageCallback != null) {
         final decodedMessage = json.decode(message.text);
         onMessageCallback!(decodedMessage);
@@ -230,17 +200,17 @@ class WebRTCService {
       final dataChannel = dataChannels[recipientId];
       if (dataChannel != null &&
           dataChannel.state == webrtc.RTCDataChannelState.RTCDataChannelOpen) {
-        print('Sending encrypted message via WebRTC');
+        debugPrint('Sending message via WebRTC');
         dataChannel.send(webrtc.RTCDataChannelMessage(messageString));
       } else {
-        print('Falling back to WebSocket');
+        debugPrint('Falling back to WebSocket');
         socket.emit('message', {
           'recipient_id': recipientId,
           'message': message,
         });
       }
     } catch (error) {
-      print('Failed to send message: $error');
+      debugPrint('Failed to send message: $error');
       rethrow;
     }
   }

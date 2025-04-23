@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:libbit_chat_app/features/chat/models/chat_user_model.dart';
-import 'package:libbit_chat_app/features/chat/ui/screens/chat_screen.dart';
 import 'package:libbit_chat_app/utils/constants/color_constants.dart';
 import 'package:intl/intl.dart'; // You'll need to add this package to your pubspec.yaml
 
@@ -105,13 +104,7 @@ class CustomCardWidget extends StatelessWidget {
             ),
         ],
       ),
-      onTap: () {
-        // Navigate to chat screen
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => ChatScreen()),
-        );
-      },
+      onTap: onTap,
     );
   }
 }

@@ -54,9 +54,10 @@ class _AuthenticationFormWidgetState extends State<AuthenticationFormWidget> {
       );
 
       if (success && mounted) {
+        // Navigate to Navigation screen
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => Navigation()),
+          MaterialPageRoute(builder: (context) => const Navigation()),
         );
       }
     } else {
@@ -70,9 +71,10 @@ class _AuthenticationFormWidgetState extends State<AuthenticationFormWidget> {
       );
 
       if (success && mounted) {
+        // Navigate to Navigation screen
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => Navigation()),
+          MaterialPageRoute(builder: (context) => const Navigation()),
         );
       }
     }
