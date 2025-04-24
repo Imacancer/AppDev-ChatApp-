@@ -1,6 +1,4 @@
 // Message model
-import 'dart:convert';
-import 'dart:math';
 import 'package:flutter/widgets.dart';
 import 'package:libbit_chat_app/features/chat/models/classification_message_model.dart';
 
@@ -147,16 +145,39 @@ class Message {
 
     // Handle flagged URLs carefully
     List<String>? urls;
-    if (json['flaggedUrls'] != null && json['flaggedUrls'] is List) {
+    if (json['flaggedUrls'] != null) {
       try {
-        urls = List<String>.from(json['flaggedUrls']);
+        if (json['flaggedUrls'] is List) {
+          // Process as list
+          urls =
+              (json['flaggedUrls'] as List)
+                  .where((item) => item is String) // Only include string items
+                  .map((item) => item as String)
+                  .toList();
+        } else if (json['flaggedUrls'] is Map) {
+          // Handle case where it's a map instead of expected list
+          debugPrint('Warning: flaggedUrls is a Map, not a List as expected');
+          // You could extract values from the map if they represent URLs
+          urls = [];
+        }
       } catch (e) {
         debugPrint('Error parsing flagged URLs: $e');
         urls = null;
       }
-    } else if (json['flagged_urls'] != null && json['flagged_urls'] is List) {
+    } else if (json['flagged_urls'] != null) {
       try {
-        urls = List<String>.from(json['flagged_urls']);
+        if (json['flagged_urls'] is List) {
+          // Process as list
+          urls =
+              (json['flagged_urls'] as List)
+                  .whereType<String>() // Only include string items
+                  .map((item) => item)
+                  .toList();
+        } else if (json['flagged_urls'] is Map) {
+          // Handle case where it's a map instead of expected list
+          debugPrint('Warning: flagged_urls is a Map, not a List as expected');
+          urls = [];
+        }
       } catch (e) {
         debugPrint('Error parsing flagged URLs: $e');
         urls = null;
@@ -177,10 +198,6 @@ class Message {
   }
 
   Map<String, dynamic> toJson() {
-    debugPrint(
-      'Raw JSON: ${json.toString().substring(0, min(json.toString().length, 500))}',
-    );
-
     return {
       '_id': id,
       'sender_id': senderId,

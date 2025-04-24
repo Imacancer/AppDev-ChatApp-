@@ -7,6 +7,7 @@ class MessageInputWidget extends StatelessWidget {
   final VoidCallback onAttachmentPressed;
   final String? selectedMedia;
   final VoidCallback onClearMedia;
+  final FocusNode? focusNode;
 
   const MessageInputWidget({
     super.key,
@@ -15,6 +16,7 @@ class MessageInputWidget extends StatelessWidget {
     required this.onAttachmentPressed,
     this.selectedMedia,
     required this.onClearMedia,
+    required this.focusNode,
   });
 
   @override

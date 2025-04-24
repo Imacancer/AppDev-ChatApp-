@@ -149,7 +149,10 @@ class _ChatListScreenState extends State<ChatListScreen> {
                         currentUser: controller.currentUser!,
                       ),
                 ),
-              );
+              ).then((_) {
+                // This will run when returning from the chat screen
+                controller.fetchUserMessages(controller.currentUser!.userId);
+              });
             }
           },
         );
@@ -202,7 +205,10 @@ class _ChatListScreenState extends State<ChatListScreen> {
                         currentUser: controller.currentUser!,
                       ),
                 ),
-              );
+              ).then((_) {
+                // This will run when returning from the chat screen
+                controller.fetchUserMessages(controller.currentUser!.userId);
+              });
             }
           },
         );

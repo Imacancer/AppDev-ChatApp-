@@ -152,7 +152,9 @@ class ChatListController extends ChangeNotifier {
               ChatUser(
                 id: partner.userId,
                 name: partner.name,
-                avatar: partner.profilePicture ?? 'assets/images/wonhee.png',
+                avatar:
+                    partner.profilePicture ??
+                    'assets/images/temporary-profile-placeholder-1.jpg',
                 lastMessage: latestMessage.message,
                 lastMessageId: latestMessage.id,
                 unreadCount: unreadCount,
