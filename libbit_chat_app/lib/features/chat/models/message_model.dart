@@ -151,8 +151,8 @@ class Message {
           // Process as list
           urls =
               (json['flaggedUrls'] as List)
-                  .where((item) => item is String) // Only include string items
-                  .map((item) => item as String)
+                  .whereType<String>() // Only include string items
+                  .map((item) => item)
                   .toList();
         } else if (json['flaggedUrls'] is Map) {
           // Handle case where it's a map instead of expected list

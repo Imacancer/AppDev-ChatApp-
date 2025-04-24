@@ -47,10 +47,6 @@ class _ChatScreenState extends State<ChatScreen> {
     // debugPrint(
     //   "Conversation initialized, message count: ${_messageController.messages.length}",
     // );
-
-    // Initialize WebRTC for real-time messaging
-    await _messageController.initializeWebRTC();
-    debugPrint("WebRTC initialized");
   }
 
   // Handles message sending and rendering
@@ -67,13 +63,10 @@ class _ChatScreenState extends State<ChatScreen> {
       // Add a small delay to ensure the UI has updated
       await Future.delayed(const Duration(milliseconds: 50));
 
-      // Since the list is already reversed and new messages are at the top,
-      // we need to scroll to position 0
+      // Scroll to the bottom of the list to show the newest message
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
-          _scrollController
-              .position
-              .maxScrollExtent, // Scroll to the top where the newest message is
+          _scrollController.position.maxScrollExtent,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
         );
@@ -84,6 +77,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _messageFocusNode.dispose();
     super.dispose();
   }
 
@@ -123,10 +117,14 @@ class _ChatScreenState extends State<ChatScreen> {
                     return const Center(child: CircularProgressIndicator());
                   }
 
-                  // Debug print to confirm consumer rebuild
-                  // debugPrint(
-                  //   "Consumer rebuilding, message count: ${controller.messages.length}",
-                  // );
+                  if (controller.messages.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'No messages yet. Start a conversation!',
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                    );
+                  }
 
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -154,7 +152,7 @@ class _ChatScreenState extends State<ChatScreen> {
               builder: (context, controller, _) {
                 return MessageInputWidget(
                   controller: controller.textController,
-                  onSendPressed: _handleSendMessage, // Use the wrapper method
+                  onSendPressed: _handleSendMessage,
                   onAttachmentPressed: controller.pickMedia,
                   selectedMedia: controller.selectedMedia,
                   onClearMedia: controller.clearSelectedMedia,

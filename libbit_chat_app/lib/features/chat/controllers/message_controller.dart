@@ -16,6 +16,7 @@ import 'package:libbit_chat_app/core/data/services/socket_service.dart';
 class MessageController extends ChangeNotifier {
   final String apiUrl = UrlConstants.apiUrl;
   final ChatService _chatService = ChatService();
+  final SocketService _socketService = SocketService();
   final Map<String, String> _headers = {'Content-Type': 'application/json'};
 
   List<Message> _messages = [];
@@ -31,17 +32,58 @@ class MessageController extends ChangeNotifier {
   User? _recipient;
   User? get recipient => _recipient;
 
-  WebRTCService? _webRTCService;
-  WebRTCService? get webRTCService => _webRTCService;
-
   bool _isLoading = true;
   bool get isLoading => _isLoading;
 
-  MessageController();
+  MessageController() {
+    // Set up socket message callback
+    _socketService.setOnNewMessageCallback(_handleSocketMessage);
+  }
+
+  // Modify _handleSocketMessage for consistent message insertion
+  void _handleSocketMessage(Message message) {
+    debugPrint('Received socket message in controller: ${message.message}');
+
+    // Only add the message if it's relevant to this conversation
+    if ((_currentUser != null && message.recipientId == _currentUser!.userId) ||
+        (_currentUser != null && message.senderId == _currentUser!.userId)) {
+      // Check if the message is already in our list to avoid duplicates
+      final existingIndex = _messages.indexWhere((msg) => msg.id == message.id);
+
+      if (existingIndex >= 0) {
+        // Update existing message
+        _messages[existingIndex] = message;
+      } else {
+        // Always append to the end since we want newest messages at the end
+        _messages.add(message);
+      }
+
+      notifyListeners();
+
+      // If this is an incoming message, mark it as read
+      if (_currentUser != null &&
+          message.recipientId == _currentUser!.userId &&
+          !message.viewed) {
+        _chatService.markMessageAsViewed(message.id);
+      }
+    }
+
+    // After adding or updating message:
+    debugPrint('Messages count after update: ${_messages.length}');
+    if (_messages.isNotEmpty) {
+      debugPrint(
+        'Last/newest message now: ${_messages[_messages.length - 1].message}',
+      );
+    }
+  }
 
   void setCurrentUser(User user) {
     _currentUser = user;
-    // Consider delaying notification if this is called during build
+
+    // Initialize socket connection with current user
+    _socketService.initialize(user.userId);
+
+    // Use post-frame callback to avoid build phase issues
     WidgetsBinding.instance.addPostFrameCallback((_) {
       notifyListeners();
     });
@@ -61,32 +103,6 @@ class MessageController extends ChangeNotifier {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       notifyListeners();
     });
-  }
-
-  Future<void> initializeWebRTC() async {
-    if (_currentUser != null &&
-        _currentUser!.userId.isNotEmpty &&
-        _recipient != null &&
-        _recipient!.userId.isNotEmpty) {
-      debugPrint("Initializing WebRTC service...");
-      final service = WebRTCService(userId: _currentUser!.userId);
-
-      service.setOnMessageCallback((message) {
-        if (message is Map<String, dynamic>) {
-          final newMessage = Message.fromJson(message);
-          _messages.add(newMessage);
-          notifyListeners();
-        }
-      });
-
-      await service.joinRoom(
-        'chat_${_currentUser!.userId}_${_recipient!.userId}',
-      );
-      _webRTCService = service;
-      debugPrint("WebRTC service initialized successfully");
-    } else {
-      debugPrint("Can't initialize WebRTC - missing userId");
-    }
   }
 
   Future<void> initializeConversation(String recipientId) async {
@@ -109,8 +125,16 @@ class MessageController extends ChangeNotifier {
       if (recipientData != null) {
         setRecipient(recipientData);
         await fetchMessages(token, userData.userId, recipientId);
-        // Add debug print to check message count after fetching
-        // debugPrint("After fetchMessages, message count: ${_messages.length}");
+
+        // Join the chat room for real-time messages
+        if (_currentUser != null && _recipient != null) {
+          final roomId = 'chat_${_currentUser!.userId}_${_recipient!.userId}';
+          debugPrint("Joining room: $roomId");
+          _socketService.joinRoom(roomId);
+
+          // Check if socket is connected
+          debugPrint("Socket connected: ${_socketService.isConnected}");
+        }
       } else {
         debugPrint("Error fetching recipient");
       }
@@ -128,6 +152,12 @@ class MessageController extends ChangeNotifier {
   ) async {
     try {
       final messages = await _chatService.getConversation(userId, recipientId);
+      debugPrint(
+        'Fetched ${messages.length} messages. First message: ${messages.isNotEmpty ? messages[0].message : "none"}',
+      );
+      debugPrint(
+        'Last/newest message: ${messages.isNotEmpty ? messages[messages.length - 1].message : "none"}',
+      );
       _messages = messages;
       notifyListeners();
 
@@ -293,9 +323,12 @@ class MessageController extends ChangeNotifier {
         viewed: false,
       );
 
+      // BEFORE adding the optimistic message, log the count
+      debugPrint("Message count BEFORE adding: ${_messages.length}");
+
       // Add the optimistic message to display immediately
-      // Insert at index 0 since messages are already reversed
-      _messages.insert(0, optimisticMessage);
+      _messages.add(optimisticMessage);
+      debugPrint("Message count AFTER adding optimistic: ${_messages.length}");
       notifyListeners();
 
       final response = await http.post(
@@ -312,10 +345,6 @@ class MessageController extends ChangeNotifier {
 
         // Handle blocked messages
         if (responseData['blocked'] == true) {
-          // Remove the optimistic message if it was blocked
-          _messages.removeWhere((msg) => msg.id == optimisticMessage.id);
-          notifyListeners();
-
           final url = responseData['url'];
           final probability = responseData['probability'] * 100;
           final classificationMessage = responseData['classificationMessage'];
@@ -358,60 +387,46 @@ class MessageController extends ChangeNotifier {
           flaggedUrls: flaggedUrls,
         );
 
-        // Replace the optimistic message with the real one
-        final index = _messages.indexWhere(
-          (msg) => msg.id == optimisticMessage.id,
+        // Remove the optimistic message
+        _messages.removeWhere((msg) => msg.id == optimisticMessage.id);
+
+        // Now add the server message
+        _messages.add(serverMessage);
+
+        // Log the count after replacement
+        debugPrint(
+          "Message count after server replacement: ${_messages.length}",
         );
-        if (index != -1) {
-          _messages[index] = serverMessage;
-        } else {
-          // If for some reason we can't find the optimistic message, add the new one
-          _messages.insert(0, serverMessage);
-        }
 
-        // Send via WebRTC if available
-        if (_webRTCService != null) {
-          try {
-            await _webRTCService!.sendMessage(
-              _recipient!.userId,
-              serverMessage.toJson(),
-            );
-            debugPrint("Message sent via WebRTC");
-          } catch (rtcError) {
-            debugPrint(
-              "Error sending via WebRTC, but HTTP successful: $rtcError",
-            );
-          }
-        } else {
-          debugPrint("WebRTC not available, message sent via HTTP only");
-        }
-
-        // Notify listeners after all updates are complete
-        notifyListeners();
-      } else if (response.statusCode == 400) {
-        // Handle 400 error, remove optimistic message
-        _messages.removeWhere((msg) => msg.id == optimisticMessage.id);
         notifyListeners();
 
-        final data = jsonDecode(response.body);
-        if (data['blocked'] == true) {
-          // Handle blocked message logic here
-          final url = data['url'];
-          final probability = data['probability'] * 100;
-          final classificationMessage = data['classificationMessage'];
-
-          debugPrint("🚫 Message blocked due to high-risk link: $url");
-          debugPrint("Confidence: ${probability.toStringAsFixed(2)}%");
-          debugPrint(classificationMessage);
-        } else {
-          debugPrint("Error sending message: ${response.statusCode}");
-        }
-      } else {
-        // Handle other errors, remove optimistic message
-        _messages.removeWhere((msg) => msg.id == optimisticMessage.id);
-        notifyListeners();
-        debugPrint("Error sending message: ${response.statusCode}");
+        // No need to send via socket here as the server will broadcast
+        // the message via socket itself after persisting it
       }
+      // else if (response.statusCode == 400) {
+      //   // Handle 400 error, remove optimistic message
+      //   _messages.removeWhere((msg) => msg.id == optimisticMessage.id);
+      //   notifyListeners();
+
+      //   final data = jsonDecode(response.body);
+      //   if (data['blocked'] == true) {
+      //     // Handle blocked message logic here
+      //     final url = data['url'];
+      //     final probability = data['probability'] * 100;
+      //     final classificationMessage = data['classificationMessage'];
+
+      //     debugPrint("🚫 Message blocked due to high-risk link: $url");
+      //     debugPrint("Confidence: ${probability.toStringAsFixed(2)}%");
+      //     debugPrint(classificationMessage);
+      //   } else {
+      //     debugPrint("Error sending message: ${response.statusCode}");
+      //   }
+      // } else {
+      //   // Handle other errors, remove optimistic message
+      //   _messages.removeWhere((msg) => msg.id == optimisticMessage.id);
+      //   notifyListeners();
+      //   debugPrint("Error sending message: ${response.statusCode}");
+      // }
     } catch (error) {
       // In case of an exception, remove the optimistic message
       _messages.removeWhere((msg) => msg.id.startsWith("temp_"));
@@ -420,6 +435,16 @@ class MessageController extends ChangeNotifier {
       debugPrint("Error sending message: $error");
       debugPrint("Failed to send message. Please try again.");
     }
+
+    // Add to your sendMessage method:
+    debugPrint("Message list length after sending: ${_messages.length}");
+    if (_messages.isNotEmpty) {
+      debugPrint("Last message: ${_messages.last.message}");
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      notifyListeners();
+    });
   }
 
   void clearSelectedMedia() {
@@ -430,7 +455,8 @@ class MessageController extends ChangeNotifier {
   @override
   void dispose() {
     textController.dispose();
-    _webRTCService?.disconnect();
+    // We don't disconnect socket service here since it's a singleton
+    // and might be used by other controllers
     super.dispose();
   }
 }

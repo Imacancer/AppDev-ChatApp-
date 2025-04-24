@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:libbit_chat_app/features/chat/models/chat_user_model.dart';
+import 'package:libbit_chat_app/features/chat/models/message_model.dart';
 import 'package:libbit_chat_app/features/chat/models/user_model.dart';
 import 'package:libbit_chat_app/features/chat/services/chat_service.dart';
+import 'package:libbit_chat_app/core/data/services/socket_service.dart';
 
 class ChatListController extends ChangeNotifier {
   final ChatService _chatService = ChatService();
+  final SocketService _socketService = SocketService();
 
   // State variables
   User? currentUser;
@@ -18,7 +21,148 @@ class ChatListController extends ChangeNotifier {
   List<User> searchResults = [];
 
   ChatListController() {
+    _setupSocketListeners();
     initializeData();
+  }
+
+  void _setupSocketListeners() {
+    // Set up socket message callback for updating chat list
+    _socketService.setOnNewMessageCallback(_handleNewSocketMessage);
+
+    // Set up profile update callback
+    _socketService.setOnProfileUpdateCallback(_handleProfileUpdate);
+  }
+
+  void _handleNewSocketMessage(Message message) {
+    debugPrint('Received message in ChatListController: ${message.toJson()}');
+
+    // If the current user is the recipient, update the chat list
+    if (currentUser != null && message.recipientId == currentUser!.userId) {
+      _updateChatWithNewMessage(message);
+    }
+    // If the current user is the sender, also update chat list
+    else if (currentUser != null && message.senderId == currentUser!.userId) {
+      _updateSentMessage(message);
+    }
+  }
+
+  void _handleProfileUpdate(User updatedUser) {
+    // Update the chat user if it exists in our list
+    for (int i = 0; i < chatUsers.length; i++) {
+      if (chatUsers[i].id == updatedUser.userId) {
+        final updatedChatUser = ChatUser(
+          id: chatUsers[i].id,
+          name: updatedUser.name,
+          avatar:
+              updatedUser.profilePicture ?? 'assets/images/default_avatar.png',
+          lastMessage: chatUsers[i].lastMessage,
+          lastMessageId: chatUsers[i].lastMessageId,
+          timestamp: chatUsers[i].timestamp,
+          unreadCount: chatUsers[i].unreadCount,
+          viewed: chatUsers[i].viewed,
+          lastMessageSenderName: chatUsers[i].lastMessageSenderName,
+        );
+
+        chatUsers[i] = updatedChatUser;
+        notifyListeners();
+        break;
+      }
+    }
+
+    // If this is the selected user, update it
+    if (selectedUserDetails != null &&
+        selectedUserDetails!.userId == updatedUser.userId) {
+      selectedUserDetails = updatedUser;
+      notifyListeners();
+    }
+  }
+
+  void _updateChatWithNewMessage(Message message) {
+    final senderId = message.senderId;
+
+    // Find if we already have a chat with this sender
+    int existingIndex = -1;
+
+    for (int i = 0; i < chatUsers.length; i++) {
+      if (chatUsers[i].id == senderId) {
+        existingIndex = i;
+        break;
+      }
+    }
+
+    if (existingIndex >= 0) {
+      // Update existing chat
+      final updatedUser = ChatUser(
+        id: chatUsers[existingIndex].id,
+        name: chatUsers[existingIndex].name,
+        avatar: chatUsers[existingIndex].avatar,
+        lastMessage: message.message,
+        lastMessageId: message.id,
+        timestamp: DateFormat.jm().format(message.timestamp.toLocal()),
+        unreadCount: chatUsers[existingIndex].unreadCount + 1,
+        viewed: false,
+        lastMessageSenderName: chatUsers[existingIndex].name,
+      );
+
+      // Move this chat to the top of the list
+      chatUsers.removeAt(existingIndex);
+      chatUsers.insert(0, updatedUser);
+      notifyListeners();
+    } else {
+      // This is a new chat partner - fetch their details
+      fetchUserDetails(senderId).then((user) {
+        if (user != null) {
+          final newChatUser = ChatUser(
+            id: user.userId,
+            name: user.name,
+            avatar: user.profilePicture ?? 'assets/images/default_avatar.png',
+            lastMessage: message.message,
+            lastMessageId: message.id,
+            timestamp: DateFormat.jm().format(message.timestamp.toLocal()),
+            unreadCount: 1,
+            viewed: false,
+            lastMessageSenderName: user.name,
+          );
+
+          chatUsers.insert(0, newChatUser);
+          notifyListeners();
+        }
+      });
+    }
+  }
+
+  void _updateSentMessage(Message message) {
+    final recipientId = message.recipientId;
+
+    // Find if we already have a chat with this recipient
+    int existingIndex = -1;
+
+    for (int i = 0; i < chatUsers.length; i++) {
+      if (chatUsers[i].id == recipientId) {
+        existingIndex = i;
+        break;
+      }
+    }
+
+    if (existingIndex >= 0) {
+      // Update existing chat
+      final updatedUser = ChatUser(
+        id: chatUsers[existingIndex].id,
+        name: chatUsers[existingIndex].name,
+        avatar: chatUsers[existingIndex].avatar,
+        lastMessage: message.message,
+        lastMessageId: message.id,
+        timestamp: DateFormat.jm().format(message.timestamp.toLocal()),
+        unreadCount: chatUsers[existingIndex].unreadCount,
+        viewed: true,
+        lastMessageSenderName: 'You',
+      );
+
+      // Move this chat to the top of the list
+      chatUsers.removeAt(existingIndex);
+      chatUsers.insert(0, updatedUser);
+      notifyListeners();
+    }
   }
 
   Future<void> initializeData() async {
@@ -33,10 +177,12 @@ class ChatListController extends ChangeNotifier {
       final userData = await _chatService.getUserData();
       if (userData != null) {
         currentUser = userData;
+
+        // Initialize the socket connection with current user
+        _socketService.initialize(userData.userId);
+
         notifyListeners();
         await fetchUserMessages(userData.userId);
-
-        // Direct conversation handling will be done in UI layer with Provider
       }
     } catch (e) {
       debugPrint('Initialization error: $e');
@@ -45,50 +191,6 @@ class ChatListController extends ChangeNotifier {
       isLoading = false;
       notifyListeners();
     }
-  }
-
-  void updateChatWithNewMessage(Map<String, dynamic> message) {
-    final senderId = message['senderId'];
-
-    for (int i = 0; i < chatUsers.length; i++) {
-      if (chatUsers[i].id == senderId) {
-        final updatedUser = ChatUser(
-          id: chatUsers[i].id,
-          name: chatUsers[i].name,
-          avatar: chatUsers[i].avatar,
-          lastMessage: message['content'],
-          lastMessageId: message['id'],
-          timestamp: DateTime.now().toLocal().toString(),
-          unreadCount: chatUsers[i].unreadCount + 1,
-          viewed: false,
-          lastMessageSenderName: chatUsers[i].name,
-        );
-
-        chatUsers[i] = updatedUser;
-        notifyListeners();
-        return;
-      }
-    }
-
-    // If we get here, this is a new chat partner - we should fetch their info
-    fetchUserDetails(senderId).then((user) {
-      if (user != null) {
-        final newChatUser = ChatUser(
-          id: user.userId,
-          name: user.name,
-          avatar: user.profilePicture ?? 'assets/images/default_avatar.png',
-          lastMessage: message['content'],
-          lastMessageId: message['id'],
-          timestamp: DateTime.now().toLocal().toString(),
-          unreadCount: 1,
-          viewed: false,
-          lastMessageSenderName: user.name,
-        );
-
-        chatUsers.add(newChatUser);
-        notifyListeners();
-      }
-    });
   }
 
   Future<void> fetchUserMessages(String userId) async {
@@ -130,7 +232,7 @@ class ChatListController extends ChangeNotifier {
                   )
                   .toList();
 
-          debugPrint('Messages for partner $partnerId: $messages');
+          // debugPrint('Messages for partner $partnerId: $messages');
 
           if (messages.isNotEmpty) {
             // Sort messages by timestamp to get the latest message
@@ -217,6 +319,7 @@ class ChatListController extends ChangeNotifier {
       final success = await _chatService.markMessageAsViewed(messageId);
 
       if (success) {
+        // Update the local chat user to reflect the message has been viewed
         for (int i = 0; i < chatUsers.length; i++) {
           if (chatUsers[i].lastMessageId == messageId) {
             final updatedUser = ChatUser(
@@ -258,11 +361,24 @@ class ChatListController extends ChangeNotifier {
 
   Future<void> handleLogout() async {
     try {
+      // Clean up socket connection
+      _socketService.disconnect();
+
+      // Clear user data
       await _chatService.clearStorage();
+
       // Navigation will be handled in UI layer
     } catch (e) {
       debugPrint('Logout error: $e');
       // Snackbar will be shown from UI layer
     }
+  }
+
+  // Clean up resources when controller is disposed
+  @override
+  void dispose() {
+    // Note: We don't disconnect the socket here since it's a singleton
+    // and might be needed by other parts of the app
+    super.dispose();
   }
 }
