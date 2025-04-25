@@ -35,6 +35,11 @@ class MessageController extends ChangeNotifier {
   bool _isLoading = true;
   bool get isLoading => _isLoading;
 
+  bool _messageBlocked = false;
+  String? _blockedMessageInfo;
+  bool get messageBlocked => _messageBlocked;
+  String? get blockedMessageInfo => _blockedMessageInfo;
+
   MessageController() {
     // Set up socket message callback
     _socketService.setOnNewMessageCallback(_handleSocketMessage);
@@ -266,6 +271,8 @@ class MessageController extends ChangeNotifier {
       "sendMessage called. Text: $messageText, Media: $_selectedMedia",
     );
 
+    debugPrint("Initial _messageBlocked state: $_messageBlocked");
+
     if ((messageText.isEmpty && _selectedMedia == null) ||
         _currentUser == null ||
         _recipient == null) {
@@ -340,7 +347,9 @@ class MessageController extends ChangeNotifier {
         body: jsonEncode(messageObj),
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        debugPrint("Server response: ${response.body}");
+
         final responseData = jsonDecode(response.body);
 
         // Handle blocked messages
@@ -349,9 +358,21 @@ class MessageController extends ChangeNotifier {
           final probability = responseData['probability'] * 100;
           final classificationMessage = responseData['classificationMessage'];
 
+          // Set blocked message status
+          _messageBlocked = true;
+          debugPrint("Current _messageBlocked state: $_messageBlocked");
+
+          _blockedMessageInfo =
+              "Message blocked: $classificationMessage\nURL: $url\nConfidence: ${probability.toStringAsFixed(2)}%";
+          notifyListeners();
+
           debugPrint("🚫 Message blocked due to high-risk link: $url");
           debugPrint("Confidence: ${probability.toStringAsFixed(2)}%");
           debugPrint(classificationMessage);
+
+          // Remove the optimistic message
+          _messages.removeWhere((msg) => msg.id == optimisticMessage.id);
+          notifyListeners();
           return;
         }
 
@@ -399,34 +420,38 @@ class MessageController extends ChangeNotifier {
         );
 
         notifyListeners();
+      } else if (response.statusCode == 400) {
+        // Handle 400 error, remove optimistic message
+        _messages.removeWhere((msg) => msg.id == optimisticMessage.id);
+        notifyListeners();
 
-        // No need to send via socket here as the server will broadcast
-        // the message via socket itself after persisting it
+        final data = jsonDecode(response.body);
+        if (data['blocked'] == true) {
+          // Handle blocked message logic here
+          final url = data['url'];
+          final probability = data['probability'] * 100;
+          final classificationMessage = data['classificationMessage'];
+
+          // Set blocked message status
+          _messageBlocked = true;
+          debugPrint("Current _messageBlocked state: $_messageBlocked");
+
+          _blockedMessageInfo =
+              "Message blocked: $classificationMessage\nURL: $url\nConfidence: ${probability.toStringAsFixed(2)}%";
+          notifyListeners();
+
+          debugPrint("🚫 Message blocked due to high-risk link: $url");
+          debugPrint("Confidence: ${probability.toStringAsFixed(2)}%");
+          debugPrint(classificationMessage);
+        } else {
+          debugPrint("Error sending message: ${response.statusCode}");
+        }
+      } else {
+        // Handle other errors, remove optimistic message
+        _messages.removeWhere((msg) => msg.id == optimisticMessage.id);
+        notifyListeners();
+        debugPrint("Error sending message: ${response.statusCode}");
       }
-      // else if (response.statusCode == 400) {
-      //   // Handle 400 error, remove optimistic message
-      //   _messages.removeWhere((msg) => msg.id == optimisticMessage.id);
-      //   notifyListeners();
-
-      //   final data = jsonDecode(response.body);
-      //   if (data['blocked'] == true) {
-      //     // Handle blocked message logic here
-      //     final url = data['url'];
-      //     final probability = data['probability'] * 100;
-      //     final classificationMessage = data['classificationMessage'];
-
-      //     debugPrint("🚫 Message blocked due to high-risk link: $url");
-      //     debugPrint("Confidence: ${probability.toStringAsFixed(2)}%");
-      //     debugPrint(classificationMessage);
-      //   } else {
-      //     debugPrint("Error sending message: ${response.statusCode}");
-      //   }
-      // } else {
-      //   // Handle other errors, remove optimistic message
-      //   _messages.removeWhere((msg) => msg.id == optimisticMessage.id);
-      //   notifyListeners();
-      //   debugPrint("Error sending message: ${response.statusCode}");
-      // }
     } catch (error) {
       // In case of an exception, remove the optimistic message
       _messages.removeWhere((msg) => msg.id.startsWith("temp_"));
@@ -449,6 +474,13 @@ class MessageController extends ChangeNotifier {
 
   void clearSelectedMedia() {
     _selectedMedia = null;
+    notifyListeners();
+  }
+
+  // This method clears the blocked message status
+  void clearBlockedMessageStatus() {
+    _messageBlocked = false;
+    _blockedMessageInfo = null;
     notifyListeners();
   }
 

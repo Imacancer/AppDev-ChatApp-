@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:libbit_chat_app/utils/constants/color_constants.dart';
 
 class MessageBubbleWidget extends StatelessWidget {
   final String message;
   final bool isMe;
   final DateTime? timestamp;
   final bool isMedia;
+  final bool isBlocked;
+  final List<String>? flaggedUrls;
 
   const MessageBubbleWidget({
     super.key,
@@ -13,6 +16,8 @@ class MessageBubbleWidget extends StatelessWidget {
     this.isMe = true,
     this.timestamp,
     this.isMedia = false,
+    this.isBlocked = false,
+    this.flaggedUrls,
   });
 
   @override
@@ -29,10 +34,19 @@ class MessageBubbleWidget extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color:
-              isMe
+              isBlocked
+                  ? Colors.red.shade100
+                  : isMe
                   ? Theme.of(context).primaryColor
                   : Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(16),
+          border:
+              isBlocked
+                  ? Border.all(
+                    color: ColorConstants.supportError.withAlpha(150),
+                    width: 1,
+                  )
+                  : null,
         ),
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.7,
@@ -41,7 +55,49 @@ class MessageBubbleWidget extends StatelessWidget {
           crossAxisAlignment:
               isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
-            if (isMedia)
+            if (isBlocked) ...[
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    color: ColorConstants.supportError,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Message blocked',
+                    style: TextStyle(
+                      color: ColorConstants.supportError,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'This message contains content that may be unsafe.',
+                style: TextStyle(
+                  color:
+                      isMe
+                          ? Colors.white
+                          : Theme.of(context).textTheme.bodyLarge?.color,
+                  fontSize: 12,
+                ),
+              ),
+              if (flaggedUrls != null && flaggedUrls!.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Flagged URL: ${flaggedUrls!.first}',
+                  style: TextStyle(
+                    color: ColorConstants.supportError,
+                    fontSize: 11,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ] else if (isMedia)
               Container(
                 constraints: BoxConstraints(
                   maxHeight: 200,
@@ -94,7 +150,7 @@ class MessageBubbleWidget extends StatelessWidget {
                     fontSize: 10,
                     color:
                         isMe
-                            ? Colors.white.withOpacity(0.7)
+                            ? Colors.white.withAlpha(150)
                             : Theme.of(context).textTheme.bodySmall?.color,
                   ),
                 ),

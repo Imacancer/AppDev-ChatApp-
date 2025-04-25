@@ -4,6 +4,7 @@ import 'package:libbit_chat_app/features/chat/models/chat_user_model.dart';
 import 'package:libbit_chat_app/features/chat/models/user_model.dart';
 import 'package:libbit_chat_app/features/chat/ui/widgets/message_bubble_widget.dart';
 import 'package:libbit_chat_app/features/chat/ui/widgets/message_input_widget.dart';
+import 'package:libbit_chat_app/utils/constants/color_constants.dart';
 import 'package:provider/provider.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -29,7 +30,6 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _messageController = Provider.of<MessageController>(context, listen: false);
-    // debugPrint("ChatScreen initialized, controller acquired");
 
     // Add a post-frame callback to initialize conversation
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -40,13 +40,9 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _initializeConversation() async {
     // Set current user from widget parameter
     _messageController.setCurrentUser(widget.currentUser);
-    // debugPrint("Current user set in controller");
 
     // Initialize conversation with recipient ID
     await _messageController.initializeConversation(widget.chatUser.id);
-    // debugPrint(
-    //   "Conversation initialized, message count: ${_messageController.messages.length}",
-    // );
   }
 
   // Handles message sending and rendering
@@ -60,16 +56,42 @@ class _ChatScreenState extends State<ChatScreen> {
       // Call sendMessage and await its completion
       await _messageController.sendMessage();
 
-      // Add a small delay to ensure the UI has updated
-      await Future.delayed(const Duration(milliseconds: 50));
+      // Check if message was blocked
+      if (_messageController.messageBlocked) {
+        // Show snackbar with blocked message info
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                _messageController.blockedMessageInfo ??
+                    'Message blocked due to unsafe content',
+              ),
+              backgroundColor: ColorConstants.supportError,
+              duration: const Duration(seconds: 5),
+              action: SnackBarAction(
+                label: 'Dismiss',
+                textColor: Colors.white,
+                onPressed: () {
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                },
+              ),
+            ),
+          );
+          // Clear the blocked message status
+          _messageController.clearBlockedMessageStatus();
+        }
+      } else {
+        // Add a small delay to ensure the UI has updated
+        await Future.delayed(const Duration(milliseconds: 50));
 
-      // Scroll to the bottom of the list to show the newest message
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
+        // Scroll to the bottom of the list to show the newest message
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
       }
     }
   }
@@ -136,11 +158,18 @@ class _ChatScreenState extends State<ChatScreen> {
                         final isMe =
                             message.senderId == widget.currentUser.userId;
 
+                        // Determine if the message has flagged URLs
+                        final hasFlaggedUrls =
+                            message.flaggedUrls != null &&
+                            message.flaggedUrls!.isNotEmpty;
+
                         return MessageBubbleWidget(
                           message: message.message,
                           isMe: isMe,
                           timestamp: message.timestamp,
                           isMedia: message.isMedia ?? false,
+                          isBlocked: hasFlaggedUrls,
+                          flaggedUrls: message.flaggedUrls,
                         );
                       },
                     ),
