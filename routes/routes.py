@@ -11,6 +11,7 @@ api.add_url_rule('/get_users', view_func=UserController.get_users, methods=['GET
 api.add_url_rule('/get_user/<userId>', view_func=UserController.get_user_by_id, methods=['GET'])
 api.add_url_rule('/search_users', view_func=UserController.search_users, methods=['GET'])
 api.add_url_rule('/get_public_key/<userId>', view_func=UserController.get_public_key, methods=['GET'])
+api.add_url_rule('/update_user/<userId>', view_func=UserController.update_user, methods=['PATCH'])
 
 api.register_blueprint(message_bp, url_prefix='/messages')
 api.register_blueprint(webrtc_bp, url_prefix='/webrtc')
