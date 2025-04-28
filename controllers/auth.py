@@ -26,7 +26,7 @@ class UserController:
     def add_user():
         try:
             data = request.get_json()
-            required_fields = ['username', 'password', 'email', 'name', 'public_key']
+            required_fields = ['username', 'password', 'email', 'name']
             for field in required_fields:
                 if field not in data:
                     return jsonify({"error": f"Missing field: {field}"}), 400

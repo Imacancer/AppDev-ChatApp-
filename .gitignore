@@ -12,3 +12,4 @@ env/
 android/
 constants.py
 mongodb.txt
+venv/
