@@ -25,6 +25,7 @@ import { decryptMessage } from "@/utils/encryption";
 import { MY_API_IP_URL } from "@/constants/ip";
 import { API_URL } from "@/constants/url";
 import { LOCALHOST_URL } from "@/constants/url";
+import * as ImagePicker from "expo-image-picker";
 
 const isWeb = Platform.OS === "web";
 
@@ -108,6 +109,15 @@ const Chat: React.FC = () => {
 
   const router = useRouter();
   const { userId } = useLocalSearchParams<{ userId?: string }>();
+
+  const [editingAccount, setEditingAccount] = useState(false);
+  const [newUsername, setNewUsername] = useState(currentUser?.username || "");
+  const [newEmail, setNewEmail] = useState(currentUser?.email || "");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [newProfilePicture, setNewProfilePicture] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
 
   // Animated values
   const sidebarAnim = React.useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
@@ -484,6 +494,84 @@ const Chat: React.FC = () => {
     </TouchableOpacity>
   );
 
+  useEffect(() => {
+    if (editingAccount && currentUser) {
+      setNewUsername(currentUser.username);
+      setNewEmail(currentUser.email);
+      setNewPassword(""); 
+    }
+  }, [editingAccount]);
+  
+
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+      base64: true,
+    });
+  
+    if (!result.canceled && result.assets.length > 0) {
+      setNewProfilePicture(result.assets[0].uri);
+    }
+  };
+  
+  const handleEditAccount = async () => {
+    if (newPassword && newPassword !== confirmPassword) {
+      Alert.alert("Error", "Passwords do not match!");
+      return;
+    }
+  
+    try {
+      const token = await getToken();
+      if (!token || !currentUser) return;
+  
+      const formData = new FormData();
+  
+      if (newUsername !== currentUser.username) {
+        formData.append("username", newUsername);
+      }
+      if (newEmail !== currentUser.email) {
+        formData.append("email", newEmail);
+      }
+      if (newPassword) {
+        formData.append("password", newPassword);
+      }
+      if (newProfilePicture) {
+        const filename = newProfilePicture.split("/").pop() || "profile.jpg";
+        const type = filename.endsWith("png") ? "image/png" : "image/jpeg";
+        formData.append("profile_picture", {
+          uri: newProfilePicture,
+          name: filename,
+          type,
+        } as any);
+      }
+  
+      const response = await axios.patch(
+        `${API_URL}/update_user/${currentUser.userId}`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+  
+      if (response.data.success) {
+        setShowSuccessModal(true);
+        setCurrentUser(response.data.user);
+        setEditingAccount(false);
+      } else {
+        Alert.alert("Update Failed", "Could not update your account.");
+      }
+    } catch (error) {
+      console.error("Error updating account:", error);
+      Alert.alert("Error", "Failed to update account.");
+    }
+  };  
+
   const renderChatItem = ({ item }: { item: ChatUser }) => (
     <TouchableOpacity
       style={styles.chatItem}
@@ -537,116 +625,194 @@ const Chat: React.FC = () => {
 
   return (
     <GestureHandlerRootView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={toggleSidebar}>
-            <Image
-              source={{
-                uri:
-                  currentUser?.profilePicture ||
-                  "https://via.placeholder.com/150",
-              }}
-              style={styles.headerAvatar}
-            />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Chats</Text>
-          <TouchableOpacity>
-            <Ionicons name="create-outline" size={24} color="#007AFF" />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search users..."
-            value={searchQuery}
-            onChangeText={handleSearch}
-          />
-        </View>
-
-        {searchResults.length > 0 ? (
-          <FlatList
-            data={searchResults}
-            renderItem={renderSearchResult}
-            keyExtractor={(item) => item.userId}
-            style={styles.searchResultsList}
-          />
-        ) : (
-          searchQuery.length > 0 && (
-            <Text style={styles.noResultsText}>No users found.</Text>
-          )
-        )}
-
-        {/* Chat List */}
-        <FlatList
-          data={chatUsers}
-          renderItem={renderChatItem}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContainer}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No messages yet</Text>
-            </View>
-          }
-        />
-      </SafeAreaView>
-
-      {/* Overlay */}
-      {isSidebarVisible && (
-        <Animated.View style={[styles.overlay, { opacity: overlayAnim }]}>
-          <TouchableOpacity
-            style={styles.overlayTouch}
-            activeOpacity={1}
-            onPress={() => animateSidebar(false)}
-          />
-        </Animated.View>
-      )}
-
-      {/* Sidebar */}
-      <Animated.View
-        style={[
-          styles.sidebar,
-          {
-            transform: [{ translateX: sidebarAnim }],
-          },
-        ]}
-      >
-        <SafeAreaView style={styles.sidebarSafeArea}>
-          <View style={styles.sidebarContent}>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => animateSidebar(false)}
-            >
-              <Ionicons name="close" size={24} color="#000" />
-            </TouchableOpacity>
-
-            <View style={styles.userInfo}>
+      {editingAccount ? (
+        <SafeAreaView style={styles.container}>
+          <View style={styles.editContainer}>
+            <TouchableOpacity onPress={pickImage}>
               <Image
                 source={{
-                  uri:
-                    currentUser?.profilePicture ||
-                    "https://via.placeholder.com/150",
+                  uri: newProfilePicture || currentUser?.profilePicture || "https://via.placeholder.com/150",
                 }}
-                style={styles.sidebarAvatar}
+                style={styles.editProfilePicture}
               />
-              <Text style={styles.userName}>{currentUser?.name}</Text>
-              <Text style={styles.userHandle}>@{currentUser?.username}</Text>
-            </View>
-
-            <TouchableOpacity
-              style={styles.logoutButton}
-              onPress={handleLogout}
-            >
-              <Text style={styles.logoutText}>Log Out</Text>
+              <Text style={styles.editPictureText}>Change Profile Picture</Text>
             </TouchableOpacity>
+  
+            <TextInput
+              style={styles.editInput}
+              placeholder="Username"
+              value={newUsername}
+              onChangeText={setNewUsername}
+            />
+            <TextInput
+              style={styles.editInput}
+              placeholder="Email"
+              value={newEmail}
+              onChangeText={setNewEmail}
+            />
+            <TextInput
+              style={styles.editInput}
+              placeholder="New Password (optional)"
+              secureTextEntry
+              value={newPassword}
+              onChangeText={setNewPassword}
+            />
+
+          <TextInput
+            style={styles.editInput}
+            placeholder="Confirm Password (optional)"
+            secureTextEntry
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+          />
+            
+            <View style={styles.editButtonContainer}>
+              <TouchableOpacity style={styles.cancelButton} onPress={() => setEditingAccount(false)}>
+                <Text style={styles.buttonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.saveButton} onPress={handleEditAccount}>
+                <Text style={styles.buttonText}>Save</Text>
+              </TouchableOpacity>
+            </View>
           </View>
+  
+          {/* Success Modal */}
+          {showSuccessModal && (
+            <View style={styles.modalContainer}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalText}>Account updated successfully!</Text>
+                <TouchableOpacity onPress={() => setShowSuccessModal(false)}>
+                  <Text style={styles.modalButton}>OK</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
         </SafeAreaView>
-      </Animated.View>
+      ) : (
+        <>
+          <SafeAreaView style={styles.safeArea}>
+            {/* Header */}
+            <View style={styles.header}>
+              <TouchableOpacity onPress={toggleSidebar}>
+                <Image
+                  source={{
+                    uri:
+                      currentUser?.profilePicture ||
+                      "https://via.placeholder.com/150",
+                  }}
+                  style={styles.headerAvatar}
+                />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>Chats</Text>
+              <TouchableOpacity>
+                <Ionicons name="create-outline" size={24} color="#007AFF" />
+              </TouchableOpacity>
+            </View>
+  
+            {/* Search */}
+            <View style={styles.searchContainer}>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search users..."
+                value={searchQuery}
+                onChangeText={handleSearch}
+              />
+            </View>
+  
+            {searchResults.length > 0 ? (
+              <FlatList
+                data={searchResults}
+                renderItem={renderSearchResult}
+                keyExtractor={(item) => item.userId}
+                style={styles.searchResultsList}
+              />
+            ) : (
+              searchQuery.length > 0 && (
+                <Text style={styles.noResultsText}>No users found.</Text>
+              )
+            )}
+  
+            {/* Chat List */}
+            <FlatList
+              data={chatUsers}
+              renderItem={renderChatItem}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.listContainer}
+              ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>No messages yet</Text>
+                </View>
+              }
+            />
+          </SafeAreaView>
+  
+          {/* Overlay */}
+          {isSidebarVisible && (
+            <Animated.View style={[styles.overlay, { opacity: overlayAnim }]}>
+              <TouchableOpacity
+                style={styles.overlayTouch}
+                activeOpacity={1}
+                onPress={() => animateSidebar(false)}
+              />
+            </Animated.View>
+          )}
+  
+          {/* Sidebar */}
+          <Animated.View
+            style={[
+              styles.sidebar,
+              {
+                transform: [{ translateX: sidebarAnim }],
+              },
+            ]}
+          >
+            <SafeAreaView style={styles.sidebarSafeArea}>
+              <View style={styles.sidebarContent}>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => animateSidebar(false)}
+                >
+                  <Ionicons name="close" size={24} color="#000" />
+                </TouchableOpacity>
+  
+                <View style={styles.userInfo}>
+                  <Image
+                    source={{
+                      uri:
+                        currentUser?.profilePicture ||
+                        "https://via.placeholder.com/150",
+                    }}
+                    style={styles.sidebarAvatar}
+                  />
+                  <Text style={styles.userName}>{currentUser?.username}</Text>
+                  <Text style={styles.userHandle}>@{currentUser?.email}</Text>
+                </View>
+  
+                <TouchableOpacity
+                  style={styles.logoutButton}
+                  onPress={() => {
+                    animateSidebar(false);
+                    setEditingAccount(true);
+                  }}
+                >
+                  <Text style={styles.logoutText}>Edit Account</Text>
+                </TouchableOpacity>
+  
+                <TouchableOpacity
+                  style={styles.logoutButton}
+                  onPress={handleLogout}
+                >
+                  <Text style={styles.logoutText}>Log Out</Text>
+                </TouchableOpacity>
+              </View>
+            </SafeAreaView>
+          </Animated.View>
+        </>
+      )}
     </GestureHandlerRootView>
   );
 };
-
+  
 const styles = StyleSheet.create({
   noResultsText: {
     fontSize: 16,
@@ -858,6 +1024,81 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "bold",
   },
+  editContainer: {
+    flex: 1,
+    alignItems: "center",
+    padding: 20,
+  },
+  editProfilePicture: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    marginBottom: 10,
+  },
+  editPictureText: {
+    color: "#007AFF",
+    marginBottom: 20,
+  },
+  editInput: {
+    width: "100%",
+    borderWidth: 1,
+    borderColor: "#E5E5E5",
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 10,
+  },
+  editButtonContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+    marginTop: 20,
+  },
+  cancelButton: {
+    backgroundColor: "#FF3B30",
+    padding: 12,
+    borderRadius: 8,
+    flex: 1,
+    marginRight: 5,
+  },
+  saveButton: {
+    backgroundColor: "#007AFF",
+    padding: 12,
+    borderRadius: 8,
+    flex: 1,
+    marginLeft: 5,
+  },
+  buttonText: {
+    color: "white",
+    textAlign: "center",
+    fontWeight: "bold",
+  },
+  modalContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    backgroundColor: "white",
+    padding: 20,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  modalText: {
+    fontSize: 16,
+    marginBottom: 20,
+  },
+  modalButton: {
+    backgroundColor: "#007AFF",
+    padding: 10,
+    borderRadius: 8,
+    color: "white",
+  },
+  
 });
 
 export default Chat;

@@ -15,7 +15,7 @@ app.config['JWT_SECRET_KEY'] = jwt_secret_key
 jwt = JWTManager(app)
 # CORS(app)
 CORS(app, supports_credentials=True, resources={r"/*": {"origins": "*"}})
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="gevent")
 
 webrtc_socketio.init_app(app, logger=True, engineio_logger=True)
 
