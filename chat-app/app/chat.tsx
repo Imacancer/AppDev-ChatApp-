@@ -562,6 +562,13 @@ const Chat: React.FC = () => {
       if (response.data.success) {
         setShowSuccessModal(true);
         setCurrentUser(response.data.user);
+
+        if (Platform.OS === "web") {
+          sessionStorage.setItem("userData", JSON.stringify(response.data.user));
+        } else {
+          await SecureStore.setItemAsync("userData", JSON.stringify(response.data.user));
+        }
+        
         setEditingAccount(false);
       } else {
         Alert.alert("Update Failed", "Could not update your account.");
