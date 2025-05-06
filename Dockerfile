@@ -9,6 +9,9 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends gcc python3-dev && \
     rm -rf /var/lib/apt/lists/*
 
+# Set environment variable to avoid TensorFlow trying to use GPU
+ENV CUDA_VISIBLE_DEVICES=""
+
 # Upgrade pip first
 RUN pip install --upgrade pip
 
@@ -24,3 +27,4 @@ EXPOSE 5001
 
 # Command to run the application
 CMD ["python", "main.py"]
+

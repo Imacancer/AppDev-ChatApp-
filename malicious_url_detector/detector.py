@@ -10,13 +10,13 @@ model_path = os.getenv("HUGGINGFACE_TOKEN")
 
 model = TFDistilBertForSequenceClassification.from_pretrained(
     "Raiden876/MaliciousUrlDetector",
-    use_auth_token=model_path,
+    token=model_path,
     num_labels=2
 )
 
 tokenizer = DistilBertTokenizer.from_pretrained(
     "Raiden876/MaliciousUrlDetector",
-    use_auth_token=model_path
+    token=model_path
 )
 
 print("Model successfully loaded.")

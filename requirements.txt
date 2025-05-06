@@ -14,6 +14,5 @@ cryptography
 gevent
 tensorflow-cpu
 transformers
-tf-keras
 numpy
 pycryptodome
