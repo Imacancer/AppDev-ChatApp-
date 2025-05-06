@@ -13,6 +13,7 @@ python-dotenv
 cryptography
 gevent
 tensorflow-cpu
+tf-keras
 transformers
 numpy
 pycryptodome
