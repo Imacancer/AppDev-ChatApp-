@@ -12,7 +12,7 @@ werkzeug
 python-dotenv
 cryptography
 gevent
-tensorflow
+tensorflow-cpu
 transformers
 tf-keras
 numpy
