@@ -1,0 +1,1 @@
+jwt_secret_key = 'ea4fa1f117e1192d2efd58c7a232452a636acf8bd9e452af1ab8a41eeb3b99e0'

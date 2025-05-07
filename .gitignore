@@ -10,5 +10,5 @@ virEnv/
 expo-env.d.ts
 env/
 android/
-constants.py
+#constants.py
 mongodb.txt
