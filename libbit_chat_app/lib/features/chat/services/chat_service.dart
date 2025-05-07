@@ -137,7 +137,21 @@ class ChatService {
 
       if (response.statusCode == 200) {
         final List<dynamic> messageData = jsonDecode(response.body);
-        return messageData.map((data) => Message.fromJson(data)).toList();
+
+        final allMessages =
+            messageData.map((data) => Message.fromJson(data)).toList();
+
+        final filteredMessages =
+            allMessages
+                .where((message) => (message.malicious! == false))
+                .toList();
+
+        // Debug print to log filtered messages
+        debugPrint(
+          'Filtered Messages: ${filteredMessages.map((m) => m.toJson()).toList()}',
+        );
+
+        return filteredMessages;
       } else {
         debugPrint('Error fetching conversation: ${response.statusCode}');
         return [];

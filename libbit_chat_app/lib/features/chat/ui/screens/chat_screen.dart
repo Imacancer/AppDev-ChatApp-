@@ -21,7 +21,7 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   late MessageController _messageController;
   final ScrollController _scrollController = ScrollController();
   final FocusNode _messageFocusNode = FocusNode();
@@ -29,12 +29,33 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _messageController = Provider.of<MessageController>(context, listen: false);
 
-    // Add a post-frame callback to initialize conversation
+    // Initialize the conversation after the frame is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeConversation();
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Access the MessageController using Provider for real-time updates
+    _messageController = Provider.of<MessageController>(context, listen: false);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Handle app lifecycle changes to manage socket connections
+    if (state == AppLifecycleState.resumed) {
+      // Rejoin the chat room when app comes back to foreground
+      if (_messageController.currentUser != null &&
+          _messageController.recipient != null) {
+        // The socket service will handle reconnection if needed
+        debugPrint("App resumed, ensuring socket connection is active");
+      }
+    }
   }
 
   Future<void> _initializeConversation() async {
@@ -43,61 +64,83 @@ class _ChatScreenState extends State<ChatScreen> {
 
     // Initialize conversation with recipient ID
     await _messageController.initializeConversation(widget.chatUser.id);
+
+    // Scroll to bottom after messages are loaded
+    _scrollToBottomAfterLoad();
+  }
+
+  void _scrollToBottomAfterLoad() {
+    // Small delay to ensure messages are loaded
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (_scrollController.hasClients && mounted) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  // Scroll to bottom when new messages arrive
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   // Handles message sending and rendering
-  void _handleSendMessage() async {
+  Future<void> _handleSendMessage() async {
     final messageText = _messageController.textController.text;
 
-    if (messageText.isNotEmpty || _messageController.selectedMedia != null) {
-      // Unfocus the text field
-      _messageFocusNode.unfocus();
+    if (messageText.isEmpty && _messageController.selectedMedia == null) {
+      return; // Don't send empty messages
+    }
 
-      // Call sendMessage and await its completion
-      await _messageController.sendMessage();
+    // Unfocus the text field
+    _messageFocusNode.unfocus();
 
-      // Check if message was blocked
-      if (_messageController.messageBlocked) {
-        // Show snackbar with blocked message info
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                _messageController.blockedMessageInfo ??
-                    'Message blocked due to unsafe content',
-              ),
-              backgroundColor: ColorConstants.supportError,
-              duration: const Duration(seconds: 5),
-              action: SnackBarAction(
-                label: 'Dismiss',
-                textColor: Colors.white,
-                onPressed: () {
-                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                },
-              ),
+    // Call sendMessage and await its completion
+    await _messageController.sendMessage();
+
+    // Check if message was blocked
+    if (_messageController.messageBlocked) {
+      // Show snackbar with blocked message info
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _messageController.blockedMessageInfo ??
+                  'Message blocked due to unsafe content',
             ),
-          );
-          // Clear the blocked message status
-          _messageController.clearBlockedMessageStatus();
-        }
-      } else {
-        // Add a small delay to ensure the UI has updated
-        await Future.delayed(const Duration(milliseconds: 50));
-
-        // Scroll to the bottom of the list to show the newest message
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
+            backgroundColor: ColorConstants.supportError,
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'Dismiss',
+              textColor: Colors.white,
+              onPressed: () {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              },
+            ),
+          ),
+        );
+        // Clear the blocked message status
+        _messageController.clearBlockedMessageStatus();
       }
+    } else {
+      // Add a small delay to ensure the UI has updated
+      await Future.delayed(const Duration(milliseconds: 50));
+      _scrollToBottom();
     }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
     _messageFocusNode.dispose();
     super.dispose();
@@ -124,72 +167,87 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
         titleSpacing: 0,
       ),
-      body: GestureDetector(
-        onTap: () {
-          // Unfocuses text field upon clicking out
-          FocusScope.of(context).unfocus();
-        },
-        behavior: HitTestBehavior.opaque,
-        child: Column(
-          children: [
-            Expanded(
-              child: Consumer<MessageController>(
-                builder: (context, controller, _) {
-                  if (controller.isLoading) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
+      body: SafeArea(
+        child: GestureDetector(
+          onTap: () {
+            // Unfocuses text field upon clicking out
+            FocusScope.of(context).unfocus();
+          },
+          behavior: HitTestBehavior.opaque,
+          child: Column(
+            children: [
+              Expanded(
+                child: Consumer<MessageController>(
+                  builder: (context, controller, _) {
+                    if (controller.isLoading) {
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          color: ColorConstants.highlightPrimary,
+                        ),
+                      );
+                    }
 
-                  if (controller.messages.isEmpty) {
-                    return Center(
-                      child: Text(
-                        'No messages yet. Start a conversation!',
-                        style: Theme.of(context).textTheme.bodyLarge,
+                    final messages = controller.messages;
+
+                    if (messages.isEmpty) {
+                      return Center(
+                        child: Text(
+                          'No messages yet. Start a conversation!',
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
+                      );
+                    }
+
+                    // When messages list changes, scroll to bottom
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (messages.isNotEmpty && _scrollController.hasClients) {
+                        _scrollToBottom();
+                      }
+                    });
+
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        itemCount: messages.length,
+                        itemBuilder: (context, index) {
+                          final message = messages[index];
+                          final isMe =
+                              message.senderId == widget.currentUser.userId;
+
+                          // Determine if the message has flagged URLs
+                          final hasFlaggedUrls =
+                              message.flaggedUrls != null &&
+                              message.flaggedUrls!.isNotEmpty;
+
+                          return MessageBubbleWidget(
+                            message: message.message,
+                            isMe: isMe,
+                            timestamp: message.timestamp,
+                            isMedia: message.isMedia ?? false,
+                            isBlocked: hasFlaggedUrls,
+                            flaggedUrls: message.flaggedUrls,
+                          );
+                        },
                       ),
                     );
-                  }
-
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: ListView.builder(
-                      controller: _scrollController,
-                      itemCount: controller.messages.length,
-                      itemBuilder: (context, index) {
-                        final message = controller.messages[index];
-                        final isMe =
-                            message.senderId == widget.currentUser.userId;
-
-                        // Determine if the message has flagged URLs
-                        final hasFlaggedUrls =
-                            message.flaggedUrls != null &&
-                            message.flaggedUrls!.isNotEmpty;
-
-                        return MessageBubbleWidget(
-                          message: message.message,
-                          isMe: isMe,
-                          timestamp: message.timestamp,
-                          isMedia: message.isMedia ?? false,
-                          isBlocked: hasFlaggedUrls,
-                          flaggedUrls: message.flaggedUrls,
-                        );
-                      },
-                    ),
+                  },
+                ),
+              ),
+              Consumer<MessageController>(
+                builder: (context, controller, _) {
+                  return MessageInputWidget(
+                    controller: controller.textController,
+                    onSendPressed: _handleSendMessage,
+                    onAttachmentPressed: controller.pickMedia,
+                    selectedMedia: controller.selectedMedia,
+                    onClearMedia: controller.clearSelectedMedia,
+                    focusNode: _messageFocusNode,
                   );
                 },
               ),
-            ),
-            Consumer<MessageController>(
-              builder: (context, controller, _) {
-                return MessageInputWidget(
-                  controller: controller.textController,
-                  onSendPressed: _handleSendMessage,
-                  onAttachmentPressed: controller.pickMedia,
-                  selectedMedia: controller.selectedMedia,
-                  onClearMedia: controller.clearSelectedMedia,
-                  focusNode: _messageFocusNode,
-                );
-              },
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
@@ -40,46 +41,96 @@ class MessageController extends ChangeNotifier {
   bool get messageBlocked => _messageBlocked;
   String? get blockedMessageInfo => _blockedMessageInfo;
 
+  bool _isPickerActive = false;
+  final ImagePicker _picker = ImagePicker();
+
   MessageController() {
     // Set up socket message callback
     _socketService.setOnNewMessageCallback(_handleSocketMessage);
+    _socketService.setOnConnectionStatusCallback(_handleConnectionStatus);
   }
 
-  // Modify _handleSocketMessage for consistent message insertion
+  // Handle socket connection status changes
+  void _handleConnectionStatus(String status) {
+    debugPrint('Socket connection status: $status');
+    // You can add UI feedback for connection status if needed
+
+    // If reconnected, attempt to rejoin the chat room
+    if (status == 'connected' && _currentUser != null && _recipient != null) {
+      _joinChatRoom();
+    }
+  }
+
+  // Join chat room with appropriate room ID generation
+  void _joinChatRoom() {
+    final roomId = _getRoomId(_currentUser!.userId, _recipient!.userId);
+    debugPrint("Joining room: $roomId");
+    _socketService.joinRoom(roomId);
+  }
+
+  // Generate consistent room ID regardless of user order
+  String _getRoomId(String userId1, String userId2) {
+    // Sort the IDs to ensure the same room ID regardless of which user starts the chat
+    final sortedIds = [userId1, userId2]..sort();
+    return 'chat_${sortedIds[0]}_${sortedIds[1]}';
+  }
+
+  // Handle incoming socket messages with improved duplicate detection
   void _handleSocketMessage(Message message) {
     debugPrint('Received socket message in controller: ${message.message}');
 
-    // Only add the message if it's relevant to this conversation
-    if ((_currentUser != null && message.recipientId == _currentUser!.userId) ||
-        (_currentUser != null && message.senderId == _currentUser!.userId)) {
-      // Check if the message is already in our list to avoid duplicates
-      final existingIndex = _messages.indexWhere((msg) => msg.id == message.id);
+    // Check if this message is relevant to current conversation
+    if (_isMessageForCurrentConversation(message)) {
+      // Check for duplicates with more robust ID comparison
+      final existingIndex = _messages.indexWhere(
+        (msg) =>
+            msg.id == message.id ||
+            (msg.senderId == message.senderId &&
+                msg.timestamp.toString() == message.timestamp.toString() &&
+                msg.message == message.message),
+      );
 
       if (existingIndex >= 0) {
         // Update existing message
         _messages[existingIndex] = message;
       } else {
-        // Always append to the end since we want newest messages at the end
+        // Add new message
         _messages.add(message);
+
+        // Sort messages by timestamp to ensure correct order
+        _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
       }
 
       notifyListeners();
 
-      // If this is an incoming message, mark it as read
-      if (_currentUser != null &&
-          message.recipientId == _currentUser!.userId &&
-          !message.viewed) {
+      // Mark incoming messages as viewed automatically
+      if (_shouldMarkAsViewed(message)) {
         _chatService.markMessageAsViewed(message.id);
       }
     }
 
-    // After adding or updating message:
+    // Debug logging
     debugPrint('Messages count after update: ${_messages.length}');
     if (_messages.isNotEmpty) {
-      debugPrint(
-        'Last/newest message now: ${_messages[_messages.length - 1].message}',
-      );
+      debugPrint('Last/newest message now: ${_messages.last.message}');
     }
+  }
+
+  // Check if a message is for the current conversation
+  bool _isMessageForCurrentConversation(Message message) {
+    if (_currentUser == null || _recipient == null) return false;
+
+    return (message.senderId == _currentUser!.userId &&
+            message.recipientId == _recipient!.userId) ||
+        (message.senderId == _recipient!.userId &&
+            message.recipientId == _currentUser!.userId);
+  }
+
+  // Check if we should mark a message as viewed
+  bool _shouldMarkAsViewed(Message message) {
+    return _currentUser != null &&
+        message.recipientId == _currentUser!.userId &&
+        !message.viewed;
   }
 
   void setCurrentUser(User user) {
@@ -88,26 +139,17 @@ class MessageController extends ChangeNotifier {
     // Initialize socket connection with current user
     _socketService.initialize(user.userId);
 
-    // Use post-frame callback to avoid build phase issues
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      notifyListeners();
-    });
+    notifyListeners();
   }
 
   void setRecipient(User recipient) {
     _recipient = recipient;
-    // Use post-frame callback to avoid build phase issues
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      notifyListeners();
-    });
+    notifyListeners();
   }
 
   void setLoading(bool loading) {
     _isLoading = loading;
-    // Use post-frame callback to avoid build phase issues
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      notifyListeners();
-    });
+    notifyListeners();
   }
 
   Future<void> initializeConversation(String recipientId) async {
@@ -133,9 +175,7 @@ class MessageController extends ChangeNotifier {
 
         // Join the chat room for real-time messages
         if (_currentUser != null && _recipient != null) {
-          final roomId = 'chat_${_currentUser!.userId}_${_recipient!.userId}';
-          debugPrint("Joining room: $roomId");
-          _socketService.joinRoom(roomId);
+          _joinChatRoom();
 
           // Check if socket is connected
           debugPrint("Socket connected: ${_socketService.isConnected}");
@@ -163,6 +203,9 @@ class MessageController extends ChangeNotifier {
       debugPrint(
         'Last/newest message: ${messages.isNotEmpty ? messages[messages.length - 1].message : "none"}',
       );
+
+      // Sort messages by timestamp
+      messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
       _messages = messages;
       notifyListeners();
 
@@ -186,28 +229,52 @@ class MessageController extends ChangeNotifier {
 
       for (final msg in unreadMessages) {
         await _chatService.markMessageAsViewed(msg.id);
+        // Update local message state for immediate UI feedback
+        final index = _messages.indexWhere((m) => m.id == msg.id);
+        if (index >= 0) {
+          _messages[index].viewed = true;
+        }
+      }
+
+      if (unreadMessages.isNotEmpty) {
+        notifyListeners();
       }
     } catch (error) {
       debugPrint("Error marking messages as viewed: $error");
     }
   }
 
-  Future<void> pickMedia() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+  Future<void> pickMedia([ImageSource source = ImageSource.gallery]) async {
+    if (_isPickerActive) return;
 
-    if (image != null) {
-      // Store picked file in app's temporary directory for more reliable access
-      final tempDir = await getTemporaryDirectory();
-      final fileName = path_lib.basename(image.path);
-      final savedFile = File('${tempDir.path}/$fileName');
+    _isPickerActive = true;
 
-      // Copy the picked file to our temp directory
-      final pickedFileBytes = await image.readAsBytes();
-      await savedFile.writeAsBytes(pickedFileBytes);
+    try {
+      final XFile? image = await _picker.pickImage(source: source).catchError((
+        e,
+      ) {
+        if (e is PlatformException && e.code == 'already_active') {
+          debugPrint("Image picker is already active");
+          return null;
+        }
+        throw e;
+      });
 
-      _selectedMedia = savedFile.path;
-      notifyListeners();
+      if (image != null) {
+        final tempDir = await getTemporaryDirectory();
+        final fileName = path_lib.basename(image.path);
+        final savedFile = File('${tempDir.path}/$fileName');
+
+        final pickedFileBytes = await image.readAsBytes();
+        await savedFile.writeAsBytes(pickedFileBytes);
+
+        _selectedMedia = savedFile.path;
+        notifyListeners();
+      }
+    } catch (error) {
+      debugPrint("Error picking media: $error");
+    } finally {
+      _isPickerActive = false;
     }
   }
 
@@ -419,6 +486,23 @@ class MessageController extends ChangeNotifier {
           "Message count after server replacement: ${_messages.length}",
         );
 
+        // Emit socket event for real-time updates if socket is connected
+        // This ensures the recipient gets the message immediately via socket
+        if (_socketService.isConnected) {
+          final socketMessageData = {
+            'sender_id': _currentUser!.userId,
+            'recipient_id': _recipient!.userId,
+            'message': messageContent,
+            'timestamp': DateTime.now().toIso8601String(),
+            'room': _getRoomId(_currentUser!.userId, _recipient!.userId),
+            'is_media': isMediaMessage,
+            'file_url': mediaUrl,
+            'message_id': serverMessage.id,
+          };
+
+          _socketService.sendMessage(socketMessageData);
+        }
+
         notifyListeners();
       } else if (response.statusCode == 400) {
         // Handle 400 error, remove optimistic message
@@ -466,10 +550,6 @@ class MessageController extends ChangeNotifier {
     if (_messages.isNotEmpty) {
       debugPrint("Last message: ${_messages.last.message}");
     }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      notifyListeners();
-    });
   }
 
   void clearSelectedMedia() {

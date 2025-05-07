@@ -117,6 +117,7 @@ class MessageBubbleWidget extends StatelessWidget {
                                   ? loadingProgress.cumulativeBytesLoaded /
                                       (loadingProgress.expectedTotalBytes ?? 1)
                                   : null,
+                          color: Colors.white,
                         ),
                       );
                     },
@@ -124,7 +125,7 @@ class MessageBubbleWidget extends StatelessWidget {
                       return Container(
                         height: 100,
                         width: 100,
-                        color: Colors.grey[300],
+                        color: ColorConstants.neutralMedium,
                         child: const Icon(Icons.error),
                       );
                     },

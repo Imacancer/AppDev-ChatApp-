@@ -9,7 +9,8 @@ class Message {
   final String message;
   final bool? isMedia;
   final DateTime timestamp;
-  final bool viewed;
+  late final bool viewed;
+  final bool? malicious;
   final List<ClassificationMessage>? classificationMessages;
   final List<String>? flaggedUrls;
 
@@ -21,6 +22,7 @@ class Message {
     this.isMedia,
     required this.timestamp,
     required this.viewed,
+    this.malicious,
     this.classificationMessages,
     this.flaggedUrls,
   });
@@ -192,6 +194,7 @@ class Message {
       isMedia: json['isMedia'] ?? json['is_media'],
       timestamp: parsedTimestamp,
       viewed: json['viewed'] ?? false,
+      malicious: json['malicious'] ?? false,
       classificationMessages: classifications,
       flaggedUrls: urls,
     );

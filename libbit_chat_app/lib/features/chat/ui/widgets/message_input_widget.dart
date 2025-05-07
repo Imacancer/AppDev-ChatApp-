@@ -1,10 +1,12 @@
 import 'dart:io';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:libbit_chat_app/utils/constants/color_constants.dart';
 
 class MessageInputWidget extends StatelessWidget {
   final TextEditingController controller;
   final VoidCallback onSendPressed;
-  final VoidCallback onAttachmentPressed;
+  final Function() onAttachmentPressed;
   final String? selectedMedia;
   final VoidCallback onClearMedia;
   final FocusNode? focusNode;
@@ -16,24 +18,16 @@ class MessageInputWidget extends StatelessWidget {
     required this.onAttachmentPressed,
     this.selectedMedia,
     required this.onClearMedia,
-    required this.focusNode,
+    this.focusNode,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        boxShadow: [
-          BoxShadow(
-            offset: const Offset(0, -2),
-            blurRadius: 4,
-            color: Colors.black.withOpacity(0.1),
-          ),
-        ],
-      ),
+      // decoration: BoxDecoration(color: Theme.of(context).cardColor),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           if (selectedMedia != null)
             Stack(
@@ -55,7 +49,7 @@ class MessageInputWidget extends StatelessWidget {
                   icon: const Icon(Icons.close, color: Colors.white),
                   onPressed: onClearMedia,
                   style: IconButton.styleFrom(
-                    backgroundColor: Colors.black.withOpacity(0.5),
+                    backgroundColor: ColorConstants.neutralMedium,
                     padding: const EdgeInsets.all(4),
                     minimumSize: const Size(24, 24),
                   ),
@@ -65,19 +59,24 @@ class MessageInputWidget extends StatelessWidget {
           Row(
             children: [
               IconButton(
-                icon: const Icon(Icons.attachment),
-                onPressed: onAttachmentPressed,
+                icon: const Icon(
+                  CupertinoIcons.photo,
+                  color: ColorConstants.highlightPrimary,
+                ),
+                onPressed: () => onAttachmentPressed(),
               ),
               Expanded(
                 child: TextField(
                   controller: controller,
+                  focusNode: focusNode,
                   decoration: const InputDecoration(
-                    hintText: 'Message',
+                    hintText: 'Messaege',
+                    hintStyle: TextStyle(color: ColorConstants.neutralMedium),
                     border: InputBorder.none,
                   ),
                   minLines: 1,
                   maxLines: 5,
-                  // Add onSubmitted to handle Enter key presses
+                  textInputAction: TextInputAction.send,
                   onSubmitted: (_) => onSendPressed(),
                 ),
               ),
