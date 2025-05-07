@@ -12,7 +12,7 @@ import 'package:libbit_chat_app/features/chat/models/user_model.dart';
 import 'package:libbit_chat_app/features/chat/models/classification_message_model.dart';
 import 'package:libbit_chat_app/utils/constants/url_constants.dart';
 import 'package:libbit_chat_app/features/chat/services/chat_service.dart';
-import 'package:libbit_chat_app/core/data/services/socket_service.dart';
+import 'package:libbit_chat_app/core/services/socket_service.dart';
 
 class MessageController extends ChangeNotifier {
   final String apiUrl = UrlConstants.apiUrl;

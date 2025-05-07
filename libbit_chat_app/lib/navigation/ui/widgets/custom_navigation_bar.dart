@@ -26,11 +26,6 @@ class CustomBottomNavigationBar extends StatelessWidget {
             label: 'Chats',
           ),
           NavigationDestination(
-            icon: Icon(CupertinoIcons.person_2_fill),
-            selectedIcon: Icon(CupertinoIcons.person_2_fill),
-            label: 'Friends',
-          ),
-          NavigationDestination(
             icon: Icon(CupertinoIcons.ellipsis),
             selectedIcon: Icon(CupertinoIcons.ellipsis),
             label: 'Settings',

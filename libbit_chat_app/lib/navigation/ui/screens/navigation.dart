@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:libbit_chat_app/features/account_management/ui/screens/account_management_screen.dart';
 import 'package:libbit_chat_app/features/chat/ui/screens/chat_list_screen.dart';
 import 'package:libbit_chat_app/navigation/ui/widgets/custom_navigation_bar.dart';
 import 'package:provider/provider.dart';
@@ -28,7 +29,7 @@ class _NavigationState extends State<Navigation> {
     return Scaffold(
       body: IndexedStack(
         index: currentScreenIndex,
-        children: const [ChatListScreen()],
+        children: const [ChatListScreen(), AccountManagementScreen()],
       ),
       bottomNavigationBar: CustomBottomNavigationBar(
         currentScreenIndex: currentScreenIndex,

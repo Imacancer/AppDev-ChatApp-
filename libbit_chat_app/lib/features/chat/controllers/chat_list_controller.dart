@@ -4,7 +4,7 @@ import 'package:libbit_chat_app/features/chat/models/chat_user_model.dart';
 import 'package:libbit_chat_app/features/chat/models/message_model.dart';
 import 'package:libbit_chat_app/features/chat/models/user_model.dart';
 import 'package:libbit_chat_app/features/chat/services/chat_service.dart';
-import 'package:libbit_chat_app/core/data/services/socket_service.dart';
+import 'package:libbit_chat_app/core/services/socket_service.dart';
 
 class ChatListController extends ChangeNotifier {
   final ChatService _chatService = ChatService();

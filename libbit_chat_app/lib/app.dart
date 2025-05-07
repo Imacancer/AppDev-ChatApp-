@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:libbit_chat_app/features/account_management/controllers/account_controller.dart';
 import 'package:libbit_chat_app/features/authentication/ui/screens/authentication_screen.dart';
 import 'package:libbit_chat_app/features/chat/controllers/chat_list_controller.dart';
 import 'package:libbit_chat_app/features/chat/controllers/message_controller.dart';
@@ -15,6 +16,7 @@ class MyApp extends StatelessWidget {
         // Global providers that will be available throughout the app
         ChangeNotifierProvider(create: (_) => MessageController()),
         ChangeNotifierProvider(create: (_) => ChatListController()),
+        ChangeNotifierProvider(create: (_) => AccountController()),
       ],
       child: MaterialApp(
         title: 'Libbit Link',

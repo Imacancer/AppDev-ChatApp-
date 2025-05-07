@@ -2,22 +2,13 @@ from transformers import TFDistilBertForSequenceClassification, DistilBertTokeni
 import tensorflow as tf
 import os
 import numpy as np
-from dotenv import load_dotenv
 
-load_dotenv()
+current_directory = os.path.dirname(os.path.abspath(__file__))
 
-model_path = os.getenv("HUGGINGFACE_TOKEN")
+model_path = os.path.join(current_directory, 'model')
 
-model = TFDistilBertForSequenceClassification.from_pretrained(
-    "Raiden876/MaliciousUrlDetector",
-    token=model_path,
-    num_labels=2
-)
-
-tokenizer = DistilBertTokenizer.from_pretrained(
-    "Raiden876/MaliciousUrlDetector",
-    token=model_path
-)
+model = TFDistilBertForSequenceClassification.from_pretrained(model_path, num_labels=2)
+tokenizer = DistilBertTokenizer.from_pretrained(model_path)
 
 print("Model successfully loaded.")
 
@@ -52,4 +43,3 @@ def is_malicious(url, threshold=0.6):
         classification_message = f"Warning. This link is likely malicious (Probability: {malicious_probability})."
 
     return malicious_probability >= threshold, malicious_probability, classification_message, classification
-
