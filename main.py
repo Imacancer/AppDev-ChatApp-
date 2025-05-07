@@ -7,17 +7,16 @@ from flask_socketio import SocketIO
 from flask_jwt_extended import JWTManager
 from routes.routes import api
 from controllers.webrtc import socketio as webrtc_socketio
-#from utils.constants import jwt_secret_key
+from utils.constants import jwt_secret_key
 import os
 
 app = Flask(__name__)
-jwt_key = os.getenv('JWT_SECRET_KEY')  
-app.config['JWT_SECRET_KEY'] = jwt_key
-jwt = JWTManager(app)
 
+app.config['JWT_SECRET_KEY'] = jwt_secret_key
+jwt = JWTManager(app)
 # CORS(app)
 CORS(app, supports_credentials=True, resources={r"/*": {"origins": "*"}})
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="gevent")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="gevent") # Change the async_mode to eventlet if there's an error
 
 webrtc_socketio.init_app(app, logger=True, engineio_logger=True)
 
