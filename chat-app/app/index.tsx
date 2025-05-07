@@ -94,7 +94,7 @@ const signUpUser = async (userData: {
   name: string;
   username: string;
   profilePicture?: string;
-  publicKey?: string;
+  //publicKey?: string;
 }) => {
   try {
     let profile_picture_base64 = undefined;
@@ -119,7 +119,6 @@ const signUpUser = async (userData: {
       last_seen: currentDate,
       created_at: currentDate,
       updated_at: currentDate,
-      // Removed the public_key and private_key as encryption logic is being removed
     };
 
     //const response = await fetch("http://127.0.0.1:5001/api/add_user", {

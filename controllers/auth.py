@@ -1,4 +1,4 @@
-from flask import request, jsonify
+from flask import request, jsonify, Blueprint
 from models.users import User
 from db.db import db
 import cloudinary.uploader
@@ -61,8 +61,8 @@ class UserController:
                 last_seen=data.get('last_seen'),
                 created_at=data.get('created_at'),
                 updated_at=data.get('updated_at'),
-                # public_key=data.get('public_key'),
-                # private_key=encrypted_private_key
+                #public_key=data.get('public_key'),
+                #private_key=encrypted_private_key
             )
             user_doc = user.to_dict()
 
@@ -145,13 +145,11 @@ class UserController:
             if not userId:
                 return jsonify({"error": "Missing userId"}), 400
 
-            # Fetch the user from the database
             user = user_collection.find_one({"userId": userId})
 
             if not user:
                 return jsonify({"error": "User not found"}), 404
 
-            # Convert ObjectId to string for proper JSON serialization
             user['_id'] = str(user['_id'])
 
             return jsonify({
@@ -165,15 +163,12 @@ class UserController:
     @staticmethod
     def search_users():
         try:
-            # Get the 'query' parameter from the request URL
             query = request.args.get('query')
             if not query:
                 return jsonify({"error": "Query parameter is required"}), 400
 
-            # Perform a case-insensitive search for users whose usernames contain the query
             users = user_collection.find({"username": {"$regex": query, "$options": "i"}})
             
-            # Convert the user documents to a list of dictionaries
             user_list = []
             for user in users:
                 user_details = {
@@ -196,13 +191,11 @@ class UserController:
             if not userId:
                 return jsonify({"error": "Missing userId"}), 400
 
-            # Fetch the user from the database
             user = user_collection.find_one({"userId": userId})
 
             if not user:
                 return jsonify({"error": "User not found"}), 404
 
-            # Convert ObjectId to string for proper JSON serialization
             user['_id'] = str(user['_id'])
             user['publicKey'] = user['publicKey']
 
@@ -211,3 +204,49 @@ class UserController:
             }), 200
         except Exception as e:
             print(f"Error in get_public_key: {str(e)}")
+
+    @staticmethod
+    @jwt_required()
+    def update_user(userId):
+        try:
+            current_user_email = get_jwt_identity()
+            user = user_collection.find_one({"userId": userId})
+            
+            if not user:
+                return jsonify({"error": "User not found"}), 404
+            
+            if user['email'] != current_user_email:
+                return jsonify({"error": "Unauthorized"}), 403
+
+            update_data = {}
+            if 'username' in request.form:
+                update_data['username'] = request.form['username']
+            if 'email' in request.form:
+                update_data['email'] = request.form['email']
+            if 'password' in request.form and request.form['password']:
+                update_data['password'] = generate_password_hash(request.form['password'])
+            
+            if 'profile_picture' in request.files:
+                file = request.files['profile_picture']
+                if file.filename != '':
+                    upload_result = cloudinary.uploader.upload(file)
+                    update_data['profilePicture'] = upload_result['secure_url']
+            
+            if update_data:
+                user_collection.update_one(
+                    {"userId": userId},
+                    {"$set": update_data}
+                )
+            
+            updated_user = user_collection.find_one({"userId": userId})
+            updated_user['_id'] = str(updated_user['_id'])
+            
+            return jsonify({
+                "success": True,
+                "message": "User updated successfully",
+                "user": updated_user
+            }), 200
+
+        except Exception as e:
+            print(f"Error updating user: {str(e)}")
+            return jsonify({"error": str(e)}), 500

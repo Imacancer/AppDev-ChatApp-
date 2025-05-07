@@ -12,8 +12,8 @@ werkzeug
 python-dotenv
 cryptography
 gevent
-tensorflow
-transformers
+tensorflow-cpu
 tf-keras
+transformers
 numpy
 pycryptodome

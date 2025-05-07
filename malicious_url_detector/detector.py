@@ -2,13 +2,22 @@ from transformers import TFDistilBertForSequenceClassification, DistilBertTokeni
 import tensorflow as tf
 import os
 import numpy as np
+from dotenv import load_dotenv
 
-current_directory = os.path.dirname(os.path.abspath(__file__))
+load_dotenv()
 
-model_path = os.path.join(current_directory, 'model')
+model_path = os.getenv("HUGGINGFACE_TOKEN")
 
-model = TFDistilBertForSequenceClassification.from_pretrained(model_path, num_labels=2)
-tokenizer = DistilBertTokenizer.from_pretrained(model_path)
+model = TFDistilBertForSequenceClassification.from_pretrained(
+    "Raiden876/MaliciousUrlDetector",
+    token=model_path,
+    num_labels=2
+)
+
+tokenizer = DistilBertTokenizer.from_pretrained(
+    "Raiden876/MaliciousUrlDetector",
+    token=model_path
+)
 
 print("Model successfully loaded.")
 
