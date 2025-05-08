@@ -105,10 +105,8 @@ class _ChatListScreenState extends State<ChatListScreen> {
 
   Widget _buildBody(ChatListController controller) {
     if (controller.isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(
-          color: ColorConstants.highlightPrimary,
-        ),
+      return Center(
+        child: CircularProgressIndicator(color: Theme.of(context).primaryColor),
       );
     }
 

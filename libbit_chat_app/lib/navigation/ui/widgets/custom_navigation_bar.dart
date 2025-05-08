@@ -28,7 +28,7 @@ class CustomBottomNavigationBar extends StatelessWidget {
           NavigationDestination(
             icon: Icon(CupertinoIcons.ellipsis),
             selectedIcon: Icon(CupertinoIcons.ellipsis),
-            label: 'Settings',
+            label: 'More',
           ),
         ],
       ),

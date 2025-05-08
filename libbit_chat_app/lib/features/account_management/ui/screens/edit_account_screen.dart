@@ -1,5 +1,7 @@
 import 'dart:io';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:libbit_chat_app/utils/constants/color_constants.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:libbit_chat_app/features/account_management/controllers/account_controller.dart';
@@ -7,7 +9,7 @@ import 'package:libbit_chat_app/features/account_management/controllers/account_
 class EditAccountScreen extends StatefulWidget {
   static const String routeName = '/edit-account';
 
-  const EditAccountScreen({Key? key}) : super(key: key);
+  const EditAccountScreen({super.key});
 
   @override
   State<EditAccountScreen> createState() => _EditAccountScreenState();
@@ -51,6 +53,11 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
     super.dispose();
   }
 
+  // Method to unfocus and dismiss keyboard
+  void _unfocusKeyboard() {
+    FocusScope.of(context).unfocus();
+  }
+
   Future<void> _pickImage() async {
     final imagePicker = ImagePicker();
     final pickedImage = await imagePicker.pickImage(
@@ -77,9 +84,12 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
     final user = accountController.currentUser;
 
     if (user == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('User not found')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('User not found'),
+          backgroundColor: ColorConstants.supportError,
+        ),
+      );
       return;
     }
 
@@ -129,7 +139,10 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Account updated successfully')),
+            const SnackBar(
+              content: Text('Account updated successfully'),
+              backgroundColor: ColorConstants.highlightPrimary,
+            ),
           );
         }
 
@@ -144,14 +157,18 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
               content: Text(
                 accountController.error ?? 'Failed to update account',
               ),
+              backgroundColor: ColorConstants.supportError,
             ),
           );
         }
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: ColorConstants.supportError,
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -170,214 +187,201 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
       return const Scaffold(body: Center(child: Text('User not found')));
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Edit Account'),
-        actions: [
-          TextButton(
-            onPressed: _isLoading ? null : _saveChanges,
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-      body:
-          _isLoading
-              ? const Dialog(
-                backgroundColor: Colors.white,
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 20),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text('Updating account', style: TextStyle(fontSize: 16)),
+    return Stack(
+      children: [
+        Scaffold(
+          appBar: AppBar(),
+          // Wrap body content with GestureDetector to dismiss keyboard when tapping outside
+          body: GestureDetector(
+            onTap: _unfocusKeyboard,
+            // Important: This ensures the gesture detector doesn't block other widgets
+            behavior: HitTestBehavior.opaque,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Profile Picture
+                    GestureDetector(
+                      onTap: _pickImage,
+                      child: Stack(
+                        alignment: Alignment.bottomRight,
+                        children: [
+                          CircleAvatar(
+                            radius: 60,
+                            backgroundImage:
+                                _selectedProfileImage != null
+                                    ? FileImage(_selectedProfileImage!)
+                                    : (user.profilePicture != null &&
+                                            user.profilePicture!.isNotEmpty
+                                        ? NetworkImage(user.profilePicture!)
+                                            as ImageProvider
+                                        : const AssetImage(
+                                          'assets/images/temporary-profile-placeholder-1.jpg',
+                                        )),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).primaryColor,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              CupertinoIcons.camera_rotate_fill,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Username
+                    TextFormField(
+                      controller: _usernameController,
+                      decoration: const InputDecoration(labelText: 'Username'),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Username is required';
+                        }
+                        if (!accountController.isValidUsername(value)) {
+                          return 'Username must be at least 3 characters long and contain only letters, numbers, and underscores';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Email
+                    TextFormField(
+                      controller: _emailController,
+                      decoration: const InputDecoration(labelText: 'Email'),
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Email is required';
+                        }
+                        if (!accountController.isValidEmail(value)) {
+                          return 'Please enter a valid email address';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Password
+                    TextFormField(
+                      controller: _passwordController,
+                      decoration: InputDecoration(
+                        labelText: 'New Password',
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _hidePassword
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _hidePassword = !_hidePassword;
+                            });
+                          },
+                        ),
+                      ),
+                      obscureText: _hidePassword,
+                      validator: (value) {
+                        if (value != null &&
+                            value.isNotEmpty &&
+                            !accountController.isStrongPassword(value)) {
+                          return 'Password must be at least 8 characters and include letters and numbers';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Confirm Password
+                    TextFormField(
+                      controller: _confirmPasswordController,
+                      decoration: InputDecoration(
+                        labelText: 'Confirm New Password',
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _hideConfirmPassword
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _hideConfirmPassword = !_hideConfirmPassword;
+                            });
+                          },
+                        ),
+                      ),
+                      obscureText: _hideConfirmPassword,
+                      validator: (value) {
+                        if (_passwordController.text.isNotEmpty &&
+                            value != _passwordController.text) {
+                          return 'Passwords do not match';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Save Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _saveChanges,
+                        style: Theme.of(
+                          context,
+                        ).elevatedButtonTheme.style?.merge(
+                          ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 24),
+                            minimumSize: const Size(0, 52),
+                          ),
+                        ),
+                        child:
+                            _isLoading
+                                ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                                : Text(
+                                  'Save changes',
+                                  style: Theme.of(context).textTheme.labelLarge
+                                      ?.copyWith(color: Colors.white),
+                                ),
+                      ),
+                    ),
+
+                    // Error message
+                    if (accountController.error != null) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        color: Colors.red[100],
+                        child: Text(
+                          accountController.error!,
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ),
                     ],
-                  ),
-                ),
-              )
-              : SingleChildScrollView(
-                padding: const EdgeInsets.all(16.0),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      // Profile Picture
-                      GestureDetector(
-                        onTap: _pickImage,
-                        child: Stack(
-                          alignment: Alignment.bottomRight,
-                          children: [
-                            CircleAvatar(
-                              radius: 60,
-                              backgroundImage:
-                                  _selectedProfileImage != null
-                                      ? FileImage(_selectedProfileImage!)
-                                      : (user.profilePicture != null &&
-                                              user.profilePicture!.isNotEmpty
-                                          ? NetworkImage(user.profilePicture!)
-                                              as ImageProvider
-                                          : const AssetImage(
-                                            'assets/images/default_profile.png',
-                                          )),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).primaryColor,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.camera_alt,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Username
-                      TextFormField(
-                        controller: _usernameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Username',
-                          prefixIcon: Icon(Icons.person),
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Username is required';
-                          }
-                          if (!accountController.isValidUsername(value)) {
-                            return 'Username must be at least 3 characters long and contain only letters, numbers, and underscores';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Email
-                      TextFormField(
-                        controller: _emailController,
-                        decoration: const InputDecoration(
-                          labelText: 'Email',
-                          prefixIcon: Icon(Icons.email),
-                          border: OutlineInputBorder(),
-                        ),
-                        keyboardType: TextInputType.emailAddress,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Email is required';
-                          }
-                          if (!accountController.isValidEmail(value)) {
-                            return 'Please enter a valid email address';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Password
-                      TextFormField(
-                        controller: _passwordController,
-                        decoration: InputDecoration(
-                          labelText:
-                              'New Password (leave blank to keep current)',
-                          prefixIcon: const Icon(Icons.lock),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _hidePassword
-                                  ? Icons.visibility
-                                  : Icons.visibility_off,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _hidePassword = !_hidePassword;
-                              });
-                            },
-                          ),
-                          border: const OutlineInputBorder(),
-                        ),
-                        obscureText: _hidePassword,
-                        validator: (value) {
-                          if (value != null &&
-                              value.isNotEmpty &&
-                              !accountController.isStrongPassword(value)) {
-                            return 'Password must be at least 8 characters and include letters and numbers';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Confirm Password
-                      TextFormField(
-                        controller: _confirmPasswordController,
-                        decoration: InputDecoration(
-                          labelText: 'Confirm New Password',
-                          prefixIcon: const Icon(Icons.lock_outline),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _hideConfirmPassword
-                                  ? Icons.visibility
-                                  : Icons.visibility_off,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _hideConfirmPassword = !_hideConfirmPassword;
-                              });
-                            },
-                          ),
-                          border: const OutlineInputBorder(),
-                        ),
-                        obscureText: _hideConfirmPassword,
-                        validator: (value) {
-                          if (_passwordController.text.isNotEmpty &&
-                              value != _passwordController.text) {
-                            return 'Passwords do not match';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Save Button
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _saveChanges,
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: const Text(
-                            'Save Changes',
-                            style: TextStyle(fontSize: 16),
-                          ),
-                        ),
-                      ),
-
-                      // Error message
-                      if (accountController.error != null) ...[
-                        const SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          color: Colors.red[100],
-                          child: Text(
-                            accountController.error!,
-                            style: const TextStyle(color: Colors.red),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
+                  ],
                 ),
               ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

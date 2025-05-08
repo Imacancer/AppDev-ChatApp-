@@ -1,7 +1,9 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:libbit_chat_app/features/account_management/services/account_service.dart';
 import 'package:libbit_chat_app/features/account_management/ui/screens/edit_account_screen.dart';
 import 'package:libbit_chat_app/features/authentication/ui/screens/authentication_screen.dart';
+import 'package:libbit_chat_app/utils/constants/color_constants.dart';
 import 'package:provider/provider.dart';
 import 'package:libbit_chat_app/features/account_management/controllers/account_controller.dart';
 
@@ -103,12 +105,18 @@ class _AccountManagementContent extends StatelessWidget {
     final theme = Theme.of(context);
 
     if (accountController.isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(
+            color: Theme.of(context).primaryColor,
+          ),
+        ),
+      );
     }
 
     if (user == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Account')),
+        appBar: AppBar(title: const Text('Menu')),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -130,77 +138,123 @@ class _AccountManagementContent extends StatelessWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Account Management'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: accountController.refreshUserData,
-            tooltip: 'Refresh',
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('menu')),
       body: RefreshIndicator(
         onRefresh: accountController.refreshUserData,
+        color: Theme.of(context).primaryColor,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Profile picture
-              CircleAvatar(
-                radius: 50,
-                backgroundImage:
-                    user.profilePicture != null &&
-                            user.profilePicture!.isNotEmpty
-                        ? NetworkImage(user.profilePicture!)
-                        : null,
-                child:
-                    user.profilePicture == null || user.profilePicture!.isEmpty
-                        ? const Icon(Icons.person, size: 50)
-                        : null,
-              ),
-              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 8.0,
+                  horizontal: 8.0,
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 32,
+                      backgroundImage:
+                          user.profilePicture != null &&
+                                  user.profilePicture!.isNotEmpty
+                              ? NetworkImage(user.profilePicture!)
+                              : null,
+                      child:
+                          user.profilePicture == null ||
+                                  user.profilePicture!.isEmpty
+                              ? const Icon(Icons.person, size: 50)
+                              : null,
+                    ),
 
-              // Username and email
-              Text(user.username, style: theme.textTheme.headlineSmall),
-              const SizedBox(height: 8),
-              Text(user.email, style: theme.textTheme.bodyLarge),
+                    const SizedBox(width: 16.0),
 
-              const SizedBox(height: 32),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          user.username,
+                          style: theme.textTheme.headlineSmall,
+                        ),
 
-              // Account Management Card
-              Card(
-                elevation: 4,
-                child: ListTile(
-                  leading: const Icon(Icons.edit),
-                  title: const Text('Edit Account'),
-                  subtitle: const Text(
-                    'Change username, email, password or profile picture',
-                  ),
-                  trailing: const Icon(Icons.arrow_forward_ios),
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const EditAccountScreen(),
-                      ),
-                    );
-                  },
+                        const SizedBox(height: 4),
+
+                        Text(
+                          user.email,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: ColorConstants.neutralMedium),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
 
-              const SizedBox(height: 16),
+              Divider(
+                height: 16.0,
+                indent: 8.0,
+                endIndent: 8.0,
+                color: ColorConstants.neutralMedium.withAlpha(100),
+              ),
 
-              // Logout Card
-              Card(
-                elevation: 4,
-                child: ListTile(
-                  leading: const Icon(Icons.logout, color: Colors.red),
-                  title: const Text('Logout'),
-                  subtitle: const Text('Sign out from your account'),
-                  trailing: const Icon(Icons.arrow_forward_ios),
-                  onTap: () => _handleLogout(context),
+              // Account Management Card
+              InkWell(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const EditAccountScreen(),
+                    ),
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 8.0,
+                    horizontal: 16.0,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.settings,
+                        size: 24.0,
+                        color: ColorConstants.neutralDark,
+                      ),
+                      const SizedBox(width: 8.0),
+                      Text(
+                        'Account management',
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: ColorConstants.neutralDark,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              InkWell(
+                onTap: () => _handleLogout(context),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 8.0,
+                    horizontal: 16.0,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.logout,
+                        size: 24.0,
+                        color: ColorConstants.neutralDark,
+                      ),
+                      const SizedBox(width: 8.0),
+                      Text(
+                        'Logout',
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: ColorConstants.neutralDark,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
 

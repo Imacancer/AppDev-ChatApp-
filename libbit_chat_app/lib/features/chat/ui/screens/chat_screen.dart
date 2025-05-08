@@ -180,9 +180,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 child: Consumer<MessageController>(
                   builder: (context, controller, _) {
                     if (controller.isLoading) {
-                      return const Center(
+                      return Center(
                         child: CircularProgressIndicator(
-                          color: ColorConstants.highlightPrimary,
+                          color: Theme.of(context).primaryColor,
                         ),
                       );
                     }

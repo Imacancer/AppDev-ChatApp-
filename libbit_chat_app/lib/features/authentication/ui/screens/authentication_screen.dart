@@ -11,43 +11,50 @@ class AuthenticationScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => AuthController(),
-      child: Scaffold(
-        body: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.only(
-              left: 24,
-              top: kToolbarHeight + 48,
-              right: 24,
-              bottom: 48,
-            ),
-            child: SizedBox(
-              width: double.infinity,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Image.asset(
-                    'assets/logos/libbit_logo_light_transparent.png',
-                    width: 120,
-                    height: 120,
-                    fit: BoxFit.cover,
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Welcome',
-                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                      color: ColorConstants.highlightPrimary,
+      child: GestureDetector(
+        // Dismiss keyboard when tapping anywhere on the screen
+        onTap: () => FocusScope.of(context).unfocus(),
+        // This ensures taps are detected on transparent areas
+        behavior: HitTestBehavior.opaque,
+        child: Scaffold(
+          body: SingleChildScrollView(
+            // Adding physics to ensure scrolling works well with the GestureDetector
+            physics: const ClampingScrollPhysics(),
+            child: Padding(
+              padding: const EdgeInsets.only(
+                left: 24,
+                top: kToolbarHeight + 48,
+                right: 24,
+                bottom: 48,
+              ),
+              child: SizedBox(
+                width: double.infinity,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Image.asset(
+                      'assets/logos/libbit_logo_light_transparent.png',
+                      width: 120,
+                      height: 120,
+                      fit: BoxFit.cover,
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Link up and start chatting anytime, anywhere!',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: ColorConstants.neutralMedium,
+                    const SizedBox(height: 24),
+                    Text(
+                      'Welcome',
+                      style: Theme.of(context).textTheme.headlineLarge
+                          ?.copyWith(color: Theme.of(context).primaryColor),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  const AuthenticationFormWidget(),
-                ],
+                    const SizedBox(height: 12),
+                    Text(
+                      'Link up and start chatting anytime, anywhere!',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: ColorConstants.neutralMedium,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    const AuthenticationFormWidget(),
+                  ],
+                ),
               ),
             ),
           ),

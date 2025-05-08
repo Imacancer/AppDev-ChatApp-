@@ -12,3 +12,4 @@ env/
 android/
 constants.py
 venv/
+.vscode/

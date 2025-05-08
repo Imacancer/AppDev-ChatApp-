@@ -21,11 +21,20 @@ class _AuthenticationFormWidgetState extends State<AuthenticationFormWidget> {
   final TextEditingController _passwordController = TextEditingController();
   String? _profilePicturePath;
 
+  // Create a focus node for each text field
+  final FocusNode _nameFocusNode = FocusNode();
+  final FocusNode _emailFocusNode = FocusNode();
+  final FocusNode _passwordFocusNode = FocusNode();
+
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    // Dispose focus nodes
+    _nameFocusNode.dispose();
+    _emailFocusNode.dispose();
+    _passwordFocusNode.dispose();
     super.dispose();
   }
 
@@ -80,181 +89,197 @@ class _AuthenticationFormWidgetState extends State<AuthenticationFormWidget> {
     }
   }
 
+  // Helper method to unfocus text fields
+  void _unfocusFields() {
+    _nameFocusNode.unfocus();
+    _emailFocusNode.unfocus();
+    _passwordFocusNode.unfocus();
+  }
+
   @override
   Widget build(BuildContext context) {
     // Get reference to the auth controller
     final authController = Provider.of<AuthController>(context);
 
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        // Toggle between Login and Signup
-        Row(
-          children: [
-            // Login toggler
-            Expanded(
-              child: GestureDetector(
-                onTap: () => setState(() => isLogin = true),
-                child: Column(
-                  children: [
-                    SizedBox(
-                      height: 40,
-                      child: Center(
-                        child: Text(
-                          "Login",
-                          style: Theme.of(
-                            context,
-                          ).textTheme.labelLarge?.copyWith(
-                            color:
-                                isLogin
-                                    ? ColorConstants.highlightPrimary
-                                    : ColorConstants.neutralMedium,
+    // Wrap the entire form with a GestureDetector to dismiss keyboard when tapping outside
+    return GestureDetector(
+      onTap: _unfocusFields,
+      // Use behavior: HitTestBehavior.opaque to ensure taps are detected even on transparent areas
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Toggle between Login and Signup
+          Row(
+            children: [
+              // Login toggler
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => isLogin = true),
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        height: 40,
+                        child: Center(
+                          child: Text(
+                            "Login",
+                            style: Theme.of(
+                              context,
+                            ).textTheme.labelLarge?.copyWith(
+                              color:
+                                  isLogin
+                                      ? Theme.of(context).primaryColor
+                                      : ColorConstants.neutralMedium,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    Container(
-                      width: double.infinity,
-                      height: 2,
-                      color:
-                          isLogin
-                              ? ColorConstants.highlightPrimary
-                              : Colors.transparent,
-                    ),
-                  ],
+                      Container(
+                        width: double.infinity,
+                        height: 2,
+                        color:
+                            isLogin
+                                ? Theme.of(context).primaryColor
+                                : Colors.transparent,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
 
-            // Sign up toggler
-            Expanded(
-              child: GestureDetector(
-                onTap: () => setState(() => isLogin = false),
-                child: Column(
-                  children: [
-                    SizedBox(
-                      height: 40,
-                      child: Center(
-                        child: Text(
-                          "Sign up",
-                          style: Theme.of(
-                            context,
-                          ).textTheme.labelLarge?.copyWith(
-                            color:
-                                !isLogin
-                                    ? ColorConstants.highlightPrimary
-                                    : ColorConstants.neutralMedium,
+              // Sign up toggler
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => isLogin = false),
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        height: 40,
+                        child: Center(
+                          child: Text(
+                            "Sign up",
+                            style: Theme.of(
+                              context,
+                            ).textTheme.labelLarge?.copyWith(
+                              color:
+                                  !isLogin
+                                      ? Theme.of(context).primaryColor
+                                      : ColorConstants.neutralMedium,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    Container(
-                      width: double.infinity,
-                      height: 2,
-                      color:
-                          !isLogin
-                              ? ColorConstants.highlightPrimary
-                              : Colors.transparent,
-                    ),
-                  ],
+                      Container(
+                        width: double.infinity,
+                        height: 2,
+                        color:
+                            !isLogin
+                                ? Theme.of(context).primaryColor
+                                : Colors.transparent,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
-
-        SizedBox(height: 24),
-
-        // Form Fields
-        if (!isLogin)
-          TextField(
-            controller: _nameController,
-            decoration: InputDecoration(labelText: "Name"),
+            ],
           ),
 
-        if (!isLogin) SizedBox(height: 16),
+          SizedBox(height: 24),
 
-        if (!isLogin)
+          // Form Fields
+          if (!isLogin)
+            TextField(
+              controller: _nameController,
+              focusNode: _nameFocusNode,
+              decoration: InputDecoration(labelText: "Name"),
+            ),
+
+          if (!isLogin) SizedBox(height: 16),
+
+          if (!isLogin)
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: _pickImage,
+                style: Theme.of(context).outlinedButtonTheme.style?.merge(
+                  OutlinedButton.styleFrom(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    minimumSize: Size(0, 52),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      _profilePicturePath != null
+                          ? 'Change profile picture'
+                          : 'Upload profile picture',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: Theme.of(context).primaryColor,
+                      ),
+                    ),
+                    if (_profilePicturePath != null) ...[
+                      SizedBox(width: 8),
+                      CircleAvatar(
+                        radius: 12,
+                        backgroundImage: FileImage(File(_profilePicturePath!)),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+
+          if (!isLogin) SizedBox(height: 16),
+
+          TextField(
+            controller: _emailController,
+            focusNode: _emailFocusNode,
+            decoration: InputDecoration(labelText: "Email"),
+            keyboardType: TextInputType.emailAddress,
+          ),
+
+          SizedBox(height: 16),
+
+          TextField(
+            controller: _passwordController,
+            focusNode: _passwordFocusNode,
+            decoration: InputDecoration(labelText: "Password"),
+            obscureText: true,
+          ),
+
+          SizedBox(height: 24),
+
           SizedBox(
             width: double.infinity,
-            child: OutlinedButton(
-              onPressed: _pickImage,
-              style: Theme.of(context).outlinedButtonTheme.style?.merge(
-                OutlinedButton.styleFrom(
+            child: ElevatedButton(
+              onPressed: authController.isLoading ? null : _handleSubmit,
+              style: Theme.of(context).elevatedButtonTheme.style?.merge(
+                ElevatedButton.styleFrom(
                   padding: EdgeInsets.symmetric(vertical: 24),
                   minimumSize: Size(0, 52),
                 ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    _profilePicturePath != null
-                        ? 'Change profile picture'
-                        : 'Upload profile picture',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: ColorConstants.highlightPrimary,
-                    ),
-                  ),
-                  if (_profilePicturePath != null) ...[
-                    SizedBox(width: 8),
-                    CircleAvatar(
-                      radius: 12,
-                      backgroundImage: FileImage(File(_profilePicturePath!)),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-
-        if (!isLogin) SizedBox(height: 16),
-
-        TextField(
-          controller: _emailController,
-          decoration: InputDecoration(labelText: "Email"),
-          keyboardType: TextInputType.emailAddress,
-        ),
-
-        SizedBox(height: 16),
-
-        TextField(
-          controller: _passwordController,
-          decoration: InputDecoration(labelText: "Password"),
-          obscureText: true,
-        ),
-
-        SizedBox(height: 24),
-
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: authController.isLoading ? null : _handleSubmit,
-            style: Theme.of(context).elevatedButtonTheme.style?.merge(
-              ElevatedButton.styleFrom(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                minimumSize: Size(0, 52),
-              ),
-            ),
-            child:
-                authController.isLoading
-                    ? SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
+              child:
+                  authController.isLoading
+                      ? SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                      : Text(
+                        isLogin ? 'Login' : 'Signup',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.labelLarge?.copyWith(color: Colors.white),
                       ),
-                    )
-                    : Text(
-                      isLogin ? 'Login' : 'Signup',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.labelLarge?.copyWith(color: Colors.white),
-                    ),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

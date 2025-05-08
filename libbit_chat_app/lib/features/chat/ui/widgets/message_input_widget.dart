@@ -59,9 +59,9 @@ class MessageInputWidget extends StatelessWidget {
           Row(
             children: [
               IconButton(
-                icon: const Icon(
+                icon: Icon(
                   CupertinoIcons.photo,
-                  color: ColorConstants.highlightPrimary,
+                  color: Theme.of(context).primaryColor,
                 ),
                 onPressed: () => onAttachmentPressed(),
               ),

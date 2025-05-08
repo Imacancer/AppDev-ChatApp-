@@ -19,6 +19,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AccountController()),
       ],
       child: MaterialApp(
+        debugShowCheckedModeBanner: false,
         title: 'Libbit Link',
         theme: CustomAppTheme.lightTheme,
         home: const AuthenticationScreen(),
