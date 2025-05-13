@@ -70,7 +70,7 @@ class MessageInputWidget extends StatelessWidget {
                   controller: controller,
                   focusNode: focusNode,
                   decoration: const InputDecoration(
-                    hintText: 'Messaege',
+                    hintText: 'Message',
                     hintStyle: TextStyle(color: ColorConstants.neutralMedium),
                     border: InputBorder.none,
                   ),
